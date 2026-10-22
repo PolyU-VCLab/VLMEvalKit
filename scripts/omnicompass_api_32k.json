@@ -1,0 +1,25 @@
+{
+  "model": {
+    "OmniCompass-API": {
+      "class": "GPT4V",
+      "model": "REPLACE_WITH_MODEL_ID",
+      "api_base": "https://provider.example/v1/chat/completions",
+      "max_tokens": 32768,
+      "token_limit_field": "max_completion_tokens",
+      "preserve_generation_config": true,
+      "temperature": 0,
+      "timeout": 1200,
+      "retry": 2,
+      "img_detail": "high",
+      "audio_format": "input_audio",
+      "return_response_json": true
+    }
+  },
+  "data": {
+    "OmniCompass_VL_32frame": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 32
+    }
+  }
+}

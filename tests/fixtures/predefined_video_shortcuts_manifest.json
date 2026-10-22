@@ -2606,5 +2606,127 @@
     "dataset_alias_name": "VUE-TR_256frame",
     "dataset_class_name": "VUETR",
     "dataset_name": "VUE-TR"
+  },
+  "OmniCompass_VL_8frame": {
+    "dataset_alias_name": "OmniCompass_VL_8frame",
+    "dataset_name": "OmniCompass_VL",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 8
+    }
+  },
+  "OmniCompass_VL_16frame": {
+    "dataset_alias_name": "OmniCompass_VL_16frame",
+    "dataset_name": "OmniCompass_VL",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 16
+    }
+  },
+  "OmniCompass_VL_32frame": {
+    "dataset_alias_name": "OmniCompass_VL_32frame",
+    "dataset_name": "OmniCompass_VL",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 32
+    }
+  },
+  "OmniCompass_VL_64frame": {
+    "dataset_alias_name": "OmniCompass_VL_64frame",
+    "dataset_name": "OmniCompass_VL",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 64
+    }
+  },
+  "OmniCompass_VL_128frame": {
+    "dataset_alias_name": "OmniCompass_VL_128frame",
+    "dataset_name": "OmniCompass_VL",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 128
+    }
+  },
+  "OmniCompass_AV_8frame": {
+    "dataset_alias_name": "OmniCompass_AV_8frame",
+    "dataset_name": "OmniCompass_AV",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_AV",
+      "nframe": 8
+    }
+  },
+  "OmniCompass_AV_16frame": {
+    "dataset_alias_name": "OmniCompass_AV_16frame",
+    "dataset_name": "OmniCompass_AV",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_AV",
+      "nframe": 16
+    }
+  },
+  "OmniCompass_AV_32frame": {
+    "dataset_alias_name": "OmniCompass_AV_32frame",
+    "dataset_name": "OmniCompass_AV",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_AV",
+      "nframe": 32
+    }
+  },
+  "OmniCompass_AV_64frame": {
+    "dataset_alias_name": "OmniCompass_AV_64frame",
+    "dataset_name": "OmniCompass_AV",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_AV",
+      "nframe": 64
+    }
+  },
+  "OmniCompass_AV_128frame": {
+    "dataset_alias_name": "OmniCompass_AV_128frame",
+    "dataset_name": "OmniCompass_AV",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_AV",
+      "nframe": 128
+    }
+  },
+  "OmniCompass_VL_1fps": {
+    "dataset_alias_name": "OmniCompass_VL_1fps",
+    "dataset_name": "OmniCompass_VL",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_VL",
+      "nframe": 0,
+      "fps": 1.0
+    }
+  },
+  "OmniCompass_AV_1fps": {
+    "dataset_alias_name": "OmniCompass_AV_1fps",
+    "dataset_name": "OmniCompass_AV",
+    "dataset_class_name": "OmniCompass",
+    "build_config": {
+      "class": "OmniCompass",
+      "dataset": "OmniCompass_AV",
+      "nframe": 0,
+      "fps": 1.0
+    }
   }
 }

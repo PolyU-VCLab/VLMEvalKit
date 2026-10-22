@@ -1,4 +1,6 @@
+# yapf: disable
 from __future__ import annotations
+import json
 import logging
 import os
 import warnings
@@ -8,6 +10,8 @@ import torch
 from vlmeval.smp import get_gpu_memory, listinstr
 from ..base import BaseModel
 from .prompt import Qwen3VLPromptMixin
+
+# yapf: enable
 
 VLLM_MAX_IMAGE_INPUT_NUM = 24
 
@@ -60,6 +64,9 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
         post_process: bool = False,
         verbose: bool = False,
         use_audio_in_video: bool = True,
+        enable_thinking: bool | None = None,
+        context_length: int | None = None,
+        return_response_json: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(use_custom_prompt=use_custom_prompt)
@@ -67,6 +74,11 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
         self.max_pixels = max_pixels
         self.total_pixels = total_pixels
         self.max_new_tokens = max_new_tokens
+        self.enable_thinking = enable_thinking
+        self.context_length = int(context_length) if context_length is not None else None
+        if self.context_length is not None and self.context_length <= 0:
+            raise ValueError("context_length must be positive")
+        self.return_response_json = return_response_json
         self.top_k = top_k
         self.top_p = top_p
         self.repetition_penalty = repetition_penalty
@@ -102,12 +114,16 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
         # Use official Qwen3-Omni classes when model_path indicates omni
         if listinstr(['omni'], model_path.lower()):
             try:
+                # yapf: disable
                 from transformers import (Qwen3OmniMoeForConditionalGeneration,
                                           Qwen3OmniMoeProcessor)
+
+                # yapf: enable
             except Exception as err:
                 logging.critical("pip install git+https://github.com/huggingface/transformers")
                 raise err
             self.processor = Qwen3OmniMoeProcessor.from_pretrained(model_path)
+            self.allowed_types = [*type(self).allowed_types, 'audio']
         else:
             self.processor = AutoProcessor.from_pretrained(model_path)
 
@@ -126,13 +142,10 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
             from vllm import LLM
             gpu_count = torch.cuda.device_count()
             tp_size = gpu_count if gpu_count > 0 else 1
-            logging.info(
-                f'Using vLLM for {self.model_path} inference with {tp_size} GPUs (available: {gpu_count})'
-            )
+            logging.info(f'Using vLLM for {self.model_path} inference with {tp_size} GPUs (available: {gpu_count})')
             if os.environ.get('VLLM_WORKER_MULTIPROC_METHOD') != 'spawn':
                 logging.warning(
-                    "VLLM_WORKER_MULTIPROC_METHOD is not set to spawn. Use 'export VLLM_WORKER_MULTIPROC_METHOD=spawn'"
-                )
+                    "VLLM_WORKER_MULTIPROC_METHOD is not set to spawn. Use 'export VLLM_WORKER_MULTIPROC_METHOD=spawn'")
             enable_expert_parallel = is_moe_model(self.model_path)
             # For Qwen3-Omni, vLLM engine v1 is not supported yet
             if listinstr(['omni'], self.model_path.lower()):
@@ -148,16 +161,19 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
                 seed=0,
                 gpu_memory_utilization=kwargs.get("gpu_utils", 0.9),
                 trust_remote_code=True,
+                **({
+                    "max_model_len": self.context_length
+                } if self.context_length is not None else {}),
             )
         else:
             if listinstr(['omni'], model_path.lower()):
                 self.model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
-                    model_path, dtype='auto', device_map='auto', attn_implementation='flash_attention_2'
-                )
+                    model_path, dtype='auto', device_map='auto', attn_implementation='flash_attention_2')
             else:
-                self.model = AutoModelForImageTextToText.from_pretrained(
-                    model_path, torch_dtype='auto', device_map='auto', attn_implementation='flash_attention_2'
-                )
+                self.model = AutoModelForImageTextToText.from_pretrained(model_path,
+                                                                         torch_dtype='auto',
+                                                                         device_map='auto',
+                                                                         attn_implementation='flash_attention_2')
             self.model.eval()
 
         torch.cuda.empty_cache()
@@ -223,9 +239,58 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
             content.append(item)
         return content
 
+    def _template_kwargs(self):
+        thinking = getattr(self, "enable_thinking", None)
+        return {} if thinking is None else {"enable_thinking": thinking}
+
+    def _check_context(self, inputs):
+        config = self.model.config
+        config = getattr(config, "thinker_config", config)
+        config = getattr(config, "text_config", config)
+        limits = [getattr(config, "max_position_embeddings", None), getattr(self, "context_length", None)]
+        limits = [int(limit) for limit in limits if limit is not None and int(limit) > 0]
+        input_tokens = int(inputs["input_ids"].shape[-1])
+        if limits and input_tokens + self.max_new_tokens > min(limits):
+            raise ValueError(f"Context capacity exceeded: {input_tokens} input + {self.max_new_tokens} output "
+                             f"> {min(limits)} total tokens. Increase the supported context capacity; "
+                             "frames and output budget have not been reduced.")
+
+    def _final_answer(self, response, prompt=None):
+        prefilled_thinking = isinstance(prompt, str) and prompt.rstrip().endswith("<think>")
+        if getattr(self, "enable_thinking", None) or prefilled_thinking:
+            return response.partition("</think>")[2].strip()
+        return response
+
+    def _format_response(self, final, raw, input_tokens, output_tokens, dataset=None):
+        if not getattr(self, "return_response_json", False) and not (dataset or "").startswith("OmniCompass"):
+            return final
+        return json.dumps(
+            {
+                "api_response": {
+                    "status_code": 200,
+                    "body": {
+                        "choices": [{
+                            "message": {
+                                "content": final,
+                                "raw_generation": raw
+                            },
+                            "finish_reason": "length" if output_tokens >= self.max_new_tokens else "stop"
+                        }],
+                        "usage": {
+                            "prompt_tokens": input_tokens,
+                            "completion_tokens": output_tokens
+                        },
+                    }
+                }
+            },
+            ensure_ascii=False)
+
     def generate_inner_transformers(self, message, dataset=None):
         is_omni = listinstr(['omni'], self.model_path.lower())
         if is_omni:
+            budget_kwargs = ({
+                "thinker_max_new_tokens": self.max_new_tokens
+            } if (dataset or "").startswith("OmniCompass") else {})
             try:
                 from qwen_omni_utils import process_mm_info
             except Exception as err:
@@ -247,7 +312,10 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
 
         if is_omni:
             # For Qwen3-Omni, messages is a list of dicts
-            text = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+            text = self.processor.apply_chat_template(messages,
+                                                      add_generation_prompt=True,
+                                                      tokenize=False,
+                                                      **self._template_kwargs())
             audios, images, videos = process_mm_info(messages, use_audio_in_video=self.use_audio_in_video)
             inputs = self.processor(
                 text=text,
@@ -259,7 +327,10 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
                 use_audio_in_video=self.use_audio_in_video,
             )
         else:
-            text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            text = self.processor.apply_chat_template(messages,
+                                                      tokenize=False,
+                                                      add_generation_prompt=True,
+                                                      **self._template_kwargs())
             images, videos, video_kwargs = process_vision_info(
                 messages,
                 image_patch_size=16,
@@ -281,6 +352,8 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
                 return_tensors='pt',
                 **(video_kwargs or {}),
             )
+        if (dataset or "").startswith("OmniCompass") or self.context_length is not None:
+            self._check_context(inputs)
         try:
             inputs = inputs.to(self.model.device)
             if hasattr(self.model, 'dtype'):
@@ -295,18 +368,21 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
                     return_audio=False,
                     thinker_return_dict_in_generate=True,
                     use_audio_in_video=self.use_audio_in_video,
+                    **budget_kwargs,
                 )
             except TypeError:
                 text_ids, _ = self.model.generate(
                     **inputs,
                     return_audio=False,
                     use_audio_in_video=self.use_audio_in_video,
+                    **budget_kwargs,
                 )
             response = self.processor.batch_decode(
                 text_ids.sequences[:, inputs["input_ids"].shape[1]:],
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False,
             )[0]
+            output_tokens = int(text_ids.sequences.shape[-1] - inputs["input_ids"].shape[-1])
         else:
             generated_ids = self.model.generate(
                 **inputs,
@@ -315,10 +391,13 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
             generated_ids = [
                 output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, generated_ids)
             ]
-            out = self.processor.tokenizer.batch_decode(
-                generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
-            )
+            out = self.processor.tokenizer.batch_decode(generated_ids,
+                                                        skip_special_tokens=True,
+                                                        clean_up_tokenization_spaces=False)
             response = out[0]
+            output_tokens = len(generated_ids[0])
+        raw_response = response
+        response = self._final_answer(response, prompt=text if (dataset or "").startswith("OmniCompass") else None)
         if self.post_process:
             resp = response.split('\\boxed{')[-1]
             lt = len(resp)
@@ -339,7 +418,11 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
 
         if self.verbose:
             print(f'\033[32m{response}\033[0m')
-        return response
+        return self._format_response(response,
+                                     raw_response,
+                                     int(inputs["input_ids"].shape[-1]),
+                                     output_tokens,
+                                     dataset=dataset)
 
     def generate_inner_vllm(self, message, dataset=None):
         from vllm import SamplingParams
@@ -364,7 +447,10 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
         if self.verbose:
             print(f'\033[31m{messages}\033[0m')
 
-        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        text = self.processor.apply_chat_template(messages,
+                                                  tokenize=False,
+                                                  add_generation_prompt=True,
+                                                  **self._template_kwargs())
         if is_omni:
             audios, image_inputs, video_inputs = process_mm_info(messages, use_audio_in_video=self.use_audio_in_video)
         else:
@@ -375,15 +461,13 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
                 return_video_metadata=True,
             )
 
-        sampling_params = SamplingParams(
-            temperature=self.temperature,
-            max_tokens=self.max_new_tokens,
-            top_p=self.top_p,
-            top_k=self.top_k,
-            repetition_penalty=self.repetition_penalty,
-            presence_penalty=self.presence_penalty,
-            stop_token_ids=None
-        )
+        sampling_params = SamplingParams(temperature=self.temperature,
+                                         max_tokens=self.max_new_tokens,
+                                         top_p=self.top_p,
+                                         top_k=self.top_k,
+                                         repetition_penalty=self.repetition_penalty,
+                                         presence_penalty=self.presence_penalty,
+                                         stop_token_ids=None)
         mm_data = {}
         if image_inputs is not None:
             mm_data['image'] = image_inputs
@@ -404,6 +488,9 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
 
         for o in outputs:
             generated_text = o.outputs[0].text
+        raw_response = generated_text
+        generated_text = self._final_answer(generated_text,
+                                            prompt=text if (dataset or "").startswith("OmniCompass") else None)
 
         if self.post_process:
             resp = generated_text.split('\\boxed{')[-1]
@@ -425,7 +512,11 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
 
         if self.verbose:
             print(f'\033[32m{generated_text}\033[0m')
-        return generated_text
+        return self._format_response(generated_text,
+                                     raw_response,
+                                     len(o.prompt_token_ids),
+                                     len(o.outputs[0].token_ids),
+                                     dataset=dataset)
 
     def generate_inner(self, message, dataset=None):
         if self.use_vllm:

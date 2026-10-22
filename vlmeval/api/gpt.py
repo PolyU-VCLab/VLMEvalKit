@@ -1,6 +1,8 @@
+import base64
 import json
 import math
 import os
+from pathlib import Path
 
 import numpy as np
 import requests
@@ -51,9 +53,7 @@ def _collect_streaming_content(response, verbose=False):
             chunk_count += 1
     answer = ''.join(answer_parts).strip()
     if verbose:
-        logger.info(
-            f'Streaming finished: chunks={chunk_count}, chars={len(answer)}'
-        )
+        logger.info(f'Streaming finished: chunks={chunk_count}, chars={len(answer)}')
     return answer
 
 
@@ -96,9 +96,16 @@ class OpenAIWrapper(BaseAPI):
                  total_img_size: int = -1,
                  max_file_size: int = 1e9,
                  img_detail: str = 'low',
+                 image_format: str = 'JPEG',
                  use_azure: bool = False,
                  stream: bool = False,
                  response_charset: str = 'utf-8',
+                 audio_format: str = None,
+                 return_response_json: bool = False,
+                 preserve_generation_config: bool = False,
+                 token_limit_field: str = None,
+                 enable_thinking: bool = None,
+                 thinking_parameter: str = "chat_template",
                  **kwargs):
         """
         Args:
@@ -112,6 +119,12 @@ class OpenAIWrapper(BaseAPI):
         self.fail_msg = 'Failed to obtain answer via API. '
         self.max_tokens = max_tokens
         self.temperature = temperature
+        if thinking_parameter not in ("chat_template", "enable_thinking"):
+            raise ValueError("thinking_parameter must be chat_template or enable_thinking")
+        if enable_thinking is not None and not isinstance(enable_thinking, bool):
+            raise ValueError("enable_thinking must be a boolean or None")
+        self.enable_thinking = enable_thinking
+        self.thinking_parameter = thinking_parameter
         self.use_azure = use_azure
 
         if 'step' in model:
@@ -157,9 +170,8 @@ class OpenAIWrapper(BaseAPI):
 
                 if key is None:
                     key = env_key
-                assert isinstance(key, str), (
-                    'Please set the environment variable AZURE_OPENAI_API_KEY to your openai key. '
-                )
+                assert isinstance(
+                    key, str), ('Please set the environment variable AZURE_OPENAI_API_KEY to your openai key. ')
             else:
                 env_key = os.environ.get('OPENAI_API_KEY', '')
                 if key is None:
@@ -171,19 +183,36 @@ class OpenAIWrapper(BaseAPI):
         assert total_img_size > 0 or total_img_size == -1
         self.total_img_size = total_img_size
         self.max_file_size = max_file_size
-        assert img_detail in ['high', 'low']
+        assert img_detail in ['high', 'low', None]
         self.img_detail = img_detail
+        if image_format not in ('JPEG', 'PNG'):
+            raise ValueError('image_format must be JPEG or PNG')
+        self.image_format = image_format
         self.timeout = timeout
         self.stream = stream
         self.response_charset = response_charset
+        if audio_format not in (None, 'input_audio'):
+            raise ValueError('audio_format must be None or input_audio')
+        self.audio_format = audio_format
+        self.return_response_json = return_response_json
+        self.preserve_generation_config = preserve_generation_config
+        if token_limit_field not in (None, 'max_tokens', 'max_completion_tokens'):
+            raise ValueError('Unsupported token_limit_field')
+        if token_limit_field is not None and not preserve_generation_config:
+            raise ValueError('token_limit_field requires preserve_generation_config=True')
+        self.token_limit_field = token_limit_field
+        self.allowed_types = list(type(self).allowed_types)
+        if audio_format == 'input_audio':
+            self.allowed_types.append('audio')
+        if stream and return_response_json:
+            raise ValueError('return_response_json requires non-streaming responses')
         self.is_max_completion_tokens = ('o1' in model) or ('o3' in model) or ('o4' in model) or ('gpt-5' in model)
         self.is_o_model = ('o1' in model) or ('o3' in model) or ('o4' in model)
         super().__init__(retry=retry, system_prompt=system_prompt, verbose=verbose, **kwargs)
 
         if use_azure:
             api_base_template = (
-                '{endpoint}openai/deployments/{deployment_name}/chat/completions?api-version={api_version}'
-            )
+                '{endpoint}openai/deployments/{deployment_name}/chat/completions?api-version={api_version}')
             endpoint = os.getenv('AZURE_OPENAI_ENDPOINT', None)
             assert endpoint is not None, 'Please set the environment variable AZURE_OPENAI_ENDPOINT. '
             deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', None)
@@ -191,11 +220,9 @@ class OpenAIWrapper(BaseAPI):
             api_version = os.getenv('OPENAI_API_VERSION', None)
             assert api_version is not None, 'Please set the environment variable OPENAI_API_VERSION. '
 
-            self.api_base = api_base_template.format(
-                endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
-                deployment_name=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
-                api_version=os.getenv('OPENAI_API_VERSION')
-            )
+            self.api_base = api_base_template.format(endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
+                                                     deployment_name=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                                                     api_version=os.getenv('OPENAI_API_VERSION'))
         else:
             if api_base is None:
                 if 'OPENAI_API_BASE' in os.environ and os.environ['OPENAI_API_BASE'] != '':
@@ -217,7 +244,7 @@ class OpenAIWrapper(BaseAPI):
                 self.api_base = os.environ.get('BOYUE_API_BASE')
                 self.key = os.environ.get('BOYUE_API_KEY')
 
-        logger.info(f'Using API Base: {self.api_base}; API Key: {self.key}')
+        logger.info(f'Using API Base: {self.api_base}; API Key: [REDACTED]')
 
     # inputs can be a lvl-2 nested list: [content1, content2, content3, ...]
     # content can be a string or a list of image & text
@@ -225,7 +252,7 @@ class OpenAIWrapper(BaseAPI):
         assert np.all([isinstance(x, dict) for x in inputs])
         has_images = np.sum([x['type'] == 'image' for x in inputs])
         image_num = len([x['type'] == 'image' for x in inputs])
-        if has_images:
+        if has_images or any(x['type'] == 'audio' for x in inputs):
             content_list = []
             for msg in inputs:
                 if msg['type'] == 'text' and msg['value']:  # Skip empty string
@@ -239,10 +266,28 @@ class OpenAIWrapper(BaseAPI):
                     if self.total_img_size > 0:
                         target_size = min(target_size, max(1, int(self.total_img_size / (image_num**0.5))))
                     target_size = -1 if math.isinf(target_size) else target_size
-                    b64 = encode_image_to_base64(
-                        img, target_size=target_size, max_file_size=self.max_file_size)
-                    img_struct = dict(url=f'data:image/jpeg;base64,{b64}', detail=self.img_detail)
+                    b64 = encode_image_to_base64(img,
+                                                 target_size=target_size,
+                                                 max_file_size=self.max_file_size,
+                                                 fmt=self.image_format)
+                    img_struct = dict(url=f'data:image/{self.image_format.lower()};base64,{b64}')
+                    if self.img_detail is not None:
+                        img_struct['detail'] = self.img_detail
                     content_list.append(dict(type='image_url', image_url=img_struct))
+                elif msg['type'] == 'audio':
+                    if self.audio_format != 'input_audio':
+                        raise ValueError('Enable input_audio before sending audio')
+                    path = Path(msg['value'])
+                    extension = path.suffix.lower().lstrip('.')
+                    if extension not in ('mp3', 'wav'):
+                        raise ValueError('input_audio requires a local MP3 or WAV file')
+                    content_list.append({
+                        'type': 'input_audio',
+                        'input_audio': {
+                            'data': base64.b64encode(path.read_bytes()).decode('ascii'),
+                            'format': extension,
+                        },
+                    })
         else:
             assert all([x['type'] == 'text' for x in inputs])
             text = '\n'.join([x['value'] for x in inputs])
@@ -264,6 +309,9 @@ class OpenAIWrapper(BaseAPI):
         return input_msgs
 
     def generate_inner(self, inputs, system_prompt=None, **kwargs) -> str:
+        # OmniCompass uses strict Chat Completions endpoints; preserve other tasks' payloads.
+        if (kwargs.get('dataset') or '').startswith('OmniCompass'):
+            kwargs.pop('dataset')
         input_msgs = self.prepare_inputs(inputs, system_prompt)
         temperature = kwargs.pop('temperature', self.temperature)
         max_tokens = kwargs.pop('max_tokens', self.max_tokens)
@@ -278,21 +326,25 @@ class OpenAIWrapper(BaseAPI):
         if hasattr(self, 'baidu_appid'):
             headers['appid'] = self.baidu_appid
 
-        payload = dict(
-            model=self.model,
-            messages=input_msgs,
-            n=1,
-            temperature=temperature,
-            **kwargs)
+        payload = dict(model=self.model, messages=input_msgs, n=1, temperature=temperature, **kwargs)
         stream = payload.pop('stream', self.stream)
+        if self.enable_thinking is not None:
+            if self.thinking_parameter == "enable_thinking":
+                payload["enable_thinking"] = self.enable_thinking
+            else:
+                template_kwargs = dict(payload.get("chat_template_kwargs", {}))
+                template_kwargs["enable_thinking"] = self.enable_thinking
+                payload["chat_template_kwargs"] = template_kwargs
 
-        if self.is_max_completion_tokens:
+        if self.token_limit_field is not None:
+            payload[self.token_limit_field] = max_tokens
+        elif self.is_max_completion_tokens:
             payload['max_completion_tokens'] = max_tokens
             payload.pop('temperature')
         else:
             payload['max_tokens'] = max_tokens
 
-        if 'gemini' in self.model:
+        if 'gemini' in self.model and not self.preserve_generation_config:
             payload.pop('max_tokens')
             payload.pop('n')
             payload['reasoning_effort'] = 'high'
@@ -318,6 +370,14 @@ class OpenAIWrapper(BaseAPI):
             stream=stream,
         )
         _apply_response_charset(response, self.response_charset)
+        if self.return_response_json:
+            body = response.json()
+            encoded = json.dumps({'api_response': {'status_code': response.status_code, 'body': body}})
+            code = 0 if 200 <= response.status_code < 300 else response.status_code
+            # Return permanent HTTP failures once; the envelope retains their failure status.
+            if 400 <= response.status_code < 500 and response.status_code not in (408, 429):
+                code = 0
+            return code, encoded, response
         ret_code = response.status_code
         ret_code = 0 if (200 <= int(ret_code) < 300) else ret_code
         answer = self.fail_msg

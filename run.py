@@ -1,3 +1,4 @@
+# yapf: disable
 import argparse
 import asyncio
 import copy as cp
@@ -14,6 +15,8 @@ from typing import List
 
 import pandas as pd
 from tabulate import tabulate
+
+# yapf: enable
 
 
 # GET the number of GPUs on the node without importing libs like torch
@@ -41,16 +44,14 @@ if LOCAL_WORLD_SIZE > 1 and len(GPU_LIST):
     assert NGPU >= LOCAL_WORLD_SIZE, "The number of processes should be less than or equal to the number of GPUs"
     GPU_PER_PROC = NGPU // LOCAL_WORLD_SIZE
     DEVICE_START_IDX = GPU_PER_PROC * LOCAL_RANK
-    CUDA_VISIBLE_DEVICES = [str(i) for i in GPU_LIST[DEVICE_START_IDX: DEVICE_START_IDX + GPU_PER_PROC]]
+    CUDA_VISIBLE_DEVICES = [str(i) for i in GPU_LIST[DEVICE_START_IDX:DEVICE_START_IDX + GPU_PER_PROC]]
     CUDA_VISIBLE_DEVICES = ','.join(CUDA_VISIBLE_DEVICES)
     # Set CUDA_VISIBLE_DEVICES
     os.environ['CUDA_VISIBLE_DEVICES'] = CUDA_VISIBLE_DEVICES
-    print(
-        f'RANK: {RANK}, LOCAL_RANK: {LOCAL_RANK}, WORLD_SIZE: {WORLD_SIZE},'
-        f'LOCAL_WORLD_SIZE: {LOCAL_WORLD_SIZE}, CUDA_VISIBLE_DEVICES: {CUDA_VISIBLE_DEVICES}'
-    )
+    print(f'RANK: {RANK}, LOCAL_RANK: {LOCAL_RANK}, WORLD_SIZE: {WORLD_SIZE},'
+          f'LOCAL_WORLD_SIZE: {LOCAL_WORLD_SIZE}, CUDA_VISIBLE_DEVICES: {CUDA_VISIBLE_DEVICES}')
 
-
+# yapf: disable
 from vlmeval.config import supported_VLM
 from vlmeval.dataset import build_dataset
 from vlmeval.inference import infer_data_job
@@ -62,6 +63,8 @@ from vlmeval.smp import (MMBenchOfficialServer, build_eval_id, collect_run_bench
                          prepare_reuse_files, proxy_set, resolve_dataset_spec, setup_logger,
                          timestr, upsert_dataset_status, upsert_run_status)
 from vlmeval.utils.result_transfer import MMMU_result_transfer, MMTBench_result_transfer
+
+# yapf: enable
 
 logger = get_logger(__name__)
 
@@ -123,13 +126,19 @@ def log_run_benchmark_report(run_dir):
 
         for idx, (primary_metric, primary_metric_value) in enumerate(metric_rows):
             report_rows.append({
-                'benchmark': row['benchmark'] if idx == 0 else '',
-                'infer_fail_rate': _format_fail_rate(row['infer_failed'], row['infer_total']) if idx == 0 else '',
-                'judge_fail_rate': _format_fail_rate(row['judge_failed'], row['judge_total']) if idx == 0 else '',
-                'primary_metric': _format_metric_field(primary_metric),
-                'primary_metric_value': _format_metric_field(primary_metric_value),
+                'benchmark':
+                row['benchmark'] if idx == 0 else '',
+                'infer_fail_rate':
+                _format_fail_rate(row['infer_failed'], row['infer_total']) if idx == 0 else '',
+                'judge_fail_rate':
+                _format_fail_rate(row['judge_failed'], row['judge_total']) if idx == 0 else '',
+                'primary_metric':
+                _format_metric_field(primary_metric),
+                'primary_metric_value':
+                _format_metric_field(primary_metric_value),
                 'skip_reason': (row['skip_reason'] or '-') if idx == 0 else '',
-                'eval_error': eval_error if idx == 0 else '',
+                'eval_error':
+                eval_error if idx == 0 else '',
             })
 
     logger.info('Run Summary Report:')
@@ -185,8 +194,8 @@ def _get_dataset_init_params(cls):
             if param.kind == inspect.Parameter.VAR_KEYWORD:
                 accepts_kwargs = True
             elif param.kind in {
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                inspect.Parameter.KEYWORD_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
             }:
                 params.add(name)
     return params, accepts_kwargs
@@ -197,10 +206,8 @@ def build_dataset_from_config_dict(config, *, display_name=None, strict=True, ex
     display_name = display_name or '<inline>'
     config = cp.deepcopy(config)
     if config == {}:
-        raise ValueError(
-            f'Empty dataset config {display_name} is not supported. '
-            'Use direct --data shortcut or set a preset explicitly.'
-        )
+        raise ValueError(f'Empty dataset config {display_name} is not supported. '
+                         'Use direct --data shortcut or set a preset explicitly.')
     cls_name = _require_non_empty_str(config, 'class', display_name)
     _require_non_empty_str(config, 'dataset', display_name)
     config.pop('class')
@@ -529,7 +536,9 @@ You can launch the evaluation by setting either --data and --model or --config.
     parser.add_argument('--data', type=str, nargs='+', help='Names of Datasets')
     parser.add_argument('--model', type=str, nargs='+', help='Names of Models')
     parser.add_argument('--config', type=str, help='Path to the Config Json File')
-    parser.add_argument('--data-config', type=str, default=None,
+    parser.add_argument('--data-config',
+                        type=str,
+                        default=None,
                         help='Custom dataset configs as a JSON dict string. Keys are output aliases passed to --data.')
 
     # Work Dir & Mode
@@ -540,22 +549,22 @@ You can launch the evaluation by setting either --data and --model or --config.
     parser.add_argument('--api-nproc', type=int, default=32, help='Parallel API calling')
     parser.add_argument('--retry', type=int, default=6, help='retry numbers for API VLMs')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--keep-failed', action='store_true',
+    parser.add_argument('--keep-failed',
+                        action='store_true',
                         help='Keep failed predictions as-is instead of retrying them.')
-    parser.add_argument(
-        '--ignore',
-        action='store_true',
-        help='[Deprecated] Ignore failed indices, it is the default behavior now. '
-        'Use `--keep-failed` to disable it.')
+    parser.add_argument('--ignore',
+                        action='store_true',
+                        help='[Deprecated] Ignore failed indices, it is the default behavior now. '
+                        'Use `--keep-failed` to disable it.')
     parser.add_argument('--reuse', action='store_true')
     parser.add_argument(
         '--reuse-aux',
         type=parse_reuse_aux_arg,
         default='all',
-        help='Reuse auxiliary files: `all` for infer+eval aux, `infer` for inference-only aux, `none` for no aux.'
-    )
-    parser.add_argument(
-        '--use-vllm', action='store_true', help='use vllm to generate, the flag is only supported in Llama4 for now')
+        help='Reuse auxiliary files: `all` for infer+eval aux, `infer` for inference-only aux, `none` for no aux.')
+    parser.add_argument('--use-vllm',
+                        action='store_true',
+                        help='use vllm to generate, the flag is only supported in Llama4 for now')
     parser.add_argument('--use-verifier', action='store_true', help='use verifier to evaluate')
 
     # Judge Args
@@ -563,48 +572,50 @@ You can launch the evaluation by setting either --data and --model or --config.
     parser.add_argument('--judge-args', type=str, default=None, help='Judge arguments in JSON format')
     parser.add_argument('--judge-base-url', type=str, default=None, help='Base URL of judge API')
     parser.add_argument('--judge-key', type=str, default=None, help='API key for judge model')
-    parser.add_argument('--judge-api-nproc', type=int, default=None,
+    parser.add_argument('--judge-api-nproc',
+                        type=int,
+                        default=None,
                         help='Parallel API calling for judger (defaults to follow --api-nproc)')
-    parser.add_argument('--judge-retry', type=int, default=None,
+    parser.add_argument('--judge-retry',
+                        type=int,
+                        default=None,
                         help='Retry times for failed judgement (defaults to follow --retry)')
-    parser.add_argument('--judge-timeout', type=int, default=600,
-                        help='Max time in seconds for judgement.')
+    parser.add_argument('--judge-timeout', type=int, default=600, help='Max time in seconds for judgement.')
 
     # Inference Model Args (when --base-url is specified)
-    parser.add_argument('--base-url', type=str, default=None,
+    parser.add_argument('--base-url',
+                        type=str,
+                        default=None,
                         help='Base URL of OpenAI-compatible API (e.g. http://localhost:8080/v1). '
-                             'If set, --model-class is used for inference without modifying config.py.')
-    parser.add_argument('--model-class', type=str, default='LMDeployAPI',
+                        'If set, --model-class is used for inference without modifying config.py.')
+    parser.add_argument('--model-class',
+                        type=str,
+                        default='LMDeployAPI',
                         help='API model class in vlmeval.api for inference when --base-url is set.')
     parser.add_argument('--key', type=str, default='sk-admin', help='API key for inference model')
-    parser.add_argument('--thinker', action='store_true',
+    parser.add_argument('--thinker',
+                        action='store_true',
                         help='[Deprecated] Enable thinking mode: doubles timeout and max_tokens.')
-    parser.add_argument('--max-tokens', type=int, default=2 ** 15,
-                        help='Max tokens for model generation.')
+    parser.add_argument('--max-tokens', type=int, default=2**15, help='Max tokens for model generation.')
     parser.add_argument('--temperature', type=float, default=None)
     parser.add_argument('--top-k', type=int, default=None)
     parser.add_argument('--top-p', type=float, default=None)
     parser.add_argument('--repetition-penalty', type=float, default=None)
-    parser.add_argument('--timeout', type=int, default=1800,
-                        help='Max time in seconds for a single inference request.')
-    parser.add_argument('--custom-prompt', type=str, default=None,
-                        help='Manually select a model adapter by name.')
-    parser.add_argument('--stream', action='store_true',
+    parser.add_argument('--timeout', type=int, default=1800, help='Max time in seconds for a single inference request.')
+    parser.add_argument('--custom-prompt', type=str, default=None, help='Manually select a model adapter by name.')
+    parser.add_argument('--stream',
+                        action='store_true',
                         help='Enable streaming responses for OpenAI-compatible API models.')
-    parser.add_argument('--extra-body', type=str, default=None,
-                        help='Extra inference parameters as json dict string')
-    parser.add_argument('--video-llm', action='store_true',
-                        help='Whether the API model supports native video inputs.')
-    parser.add_argument('--local-media', action='store_true',
+    parser.add_argument('--extra-body', type=str, default=None, help='Extra inference parameters as json dict string')
+    parser.add_argument('--video-llm', action='store_true', help='Whether the API model supports native video inputs.')
+    parser.add_argument('--local-media',
+                        action='store_true',
                         help='Whether to send local media file path to the API model.')
 
     # API Pipeline Args (only for --api-mode)
-    parser.add_argument('--api-mode', action='store_true',
-                        help='Switch to async API pipeline mode')
-    parser.add_argument('--monitor-interval', type=int, default=30,
-                        help='Status monitoring interval in seconds')
-    parser.add_argument('--debug', action='store_true',
-                        help='Debug mode: run evaluation in main process')
+    parser.add_argument('--api-mode', action='store_true', help='Switch to async API pipeline mode')
+    parser.add_argument('--monitor-interval', type=int, default=30, help='Status monitoring interval in seconds')
+    parser.add_argument('--debug', action='store_true', help='Debug mode: run evaluation in main process')
 
     args = parser.parse_args()
     try:
@@ -635,10 +646,8 @@ def run_local_mode(args):
     commit_id = githash(digits=8)
     if WORLD_SIZE > 1:
         import torch.distributed as dist
-        dist.init_process_group(
-            backend='nccl',
-            timeout=datetime.timedelta(seconds=int(os.environ.get('DIST_TIMEOUT', 3600)))
-        )
+        dist.init_process_group(backend='nccl',
+                                timeout=datetime.timedelta(seconds=int(os.environ.get('DIST_TIMEOUT', 3600))))
         eval_id_holder = [build_eval_id() if RANK == 0 else None]
         dist.broadcast_object_list(eval_id_holder, src=0)
         eval_id = eval_id_holder[0]
@@ -669,6 +678,10 @@ def run_local_mode(args):
                     supported_VLM[m] = partial(GPT4V, **kws)
                     logger.warning(f'FWD_API is set, will use class `GPT4V` for {m}')
 
+    failed_combinations = []
+    data_config_for_alias = cfg['data'] if use_config else args.data_config
+    strict_failure_reporting = any(
+        resolve_dataset_spec(name, data_config_for_alias).dataset_name.startswith('OmniCompass') for name in args.data)
     for _, model_name in enumerate(args.model):
         logger.info(f'=========== {model_name} ===========')
         model = None
@@ -703,7 +716,6 @@ def run_local_mode(args):
             model_args['model'] = model_name
             model = api_model_class(**model_args)
 
-        data_config_for_alias = cfg['data'] if use_config else args.data_config
         for _, data_entry_name in enumerate(args.data):
             spec = resolve_dataset_spec(data_entry_name, data_config_for_alias)
             dataset_name = spec.dataset_name
@@ -721,8 +733,7 @@ def run_local_mode(args):
             judge_model = None
 
             try:
-                result_file = get_pred_file_path(
-                    str(pred_root), model_name, dataset_alias_name, use_env_format=True)
+                result_file = get_pred_file_path(str(pred_root), model_name, dataset_alias_name, use_env_format=True)
                 if RANK == 0:
                     upsert_dataset_status(
                         run_dir=pred_root,
@@ -746,6 +757,7 @@ def run_local_mode(args):
                 dataset = build_dataset_from_spec(spec, extra_kwargs=dataset_kwargs)
                 dataset_class_name = get_effective_dataset_class_name(spec, dataset)
                 if dataset is None:
+                    failed_combinations.append((model_name, dataset_alias_name))
                     logger.error(f'Dataset {dataset_name} is not valid, will be skipped. ')
                     if RANK == 0:
                         upsert_dataset_status(
@@ -799,11 +811,10 @@ def run_local_mode(args):
                     retry_failed=not args.keep_failed,
                 )
                 if args.mode == 'eval' and not prediction_complete:
+                    failed_combinations.append((model_name, dataset_alias_name))
                     if RANK == 0:
-                        logger.error(
-                            f'No reusable completed prediction found for {model_name} x {dataset_name}, '
-                            'skipping this combination in eval mode.'
-                        )
+                        logger.error(f'No reusable completed prediction found for {model_name} x {dataset_name}, '
+                                     'skipping this combination in eval mode.')
                         if Path(result_file).exists():
                             skip_reason = 'Incomplete infer result'
                         else:
@@ -832,50 +843,49 @@ def run_local_mode(args):
                         )
                     # Perform the Inference
                     if dataset.MODALITY == 'VIDEO':
-                        model = infer_data_job_video(
-                            model,
-                            work_dir=pred_root,
-                            model_name=model_name,
-                            dataset=dataset,
-                            result_file=result_file,
-                            dataset_name=dataset_name,
-                            dataset_alias_name=dataset_alias_name,
-                            verbose=args.verbose,
-                            api_nproc=args.api_nproc,
-                            use_vllm=args.use_vllm,
-                            retry_failed=not args.keep_failed)
+                        model = infer_data_job_video(model,
+                                                     work_dir=pred_root,
+                                                     model_name=model_name,
+                                                     dataset=dataset,
+                                                     result_file=result_file,
+                                                     dataset_name=dataset_name,
+                                                     dataset_alias_name=dataset_alias_name,
+                                                     verbose=args.verbose,
+                                                     api_nproc=args.api_nproc,
+                                                     use_vllm=args.use_vllm,
+                                                     retry_failed=not args.keep_failed)
                     elif dataset.TYPE == 'MT':
-                        model = infer_data_job_mt(
-                            model,
-                            work_dir=pred_root,
-                            model_name=model_name,
-                            dataset=dataset,
-                            result_file=result_file,
-                            dataset_name=dataset_name,
-                            dataset_alias_name=dataset_alias_name,
-                            verbose=args.verbose,
-                            api_nproc=args.api_nproc,
-                            retry_failed=not args.keep_failed,
-                            use_vllm=args.use_vllm)
+                        model = infer_data_job_mt(model,
+                                                  work_dir=pred_root,
+                                                  model_name=model_name,
+                                                  dataset=dataset,
+                                                  result_file=result_file,
+                                                  dataset_name=dataset_name,
+                                                  dataset_alias_name=dataset_alias_name,
+                                                  verbose=args.verbose,
+                                                  api_nproc=args.api_nproc,
+                                                  retry_failed=not args.keep_failed,
+                                                  use_vllm=args.use_vllm)
                     else:
-                        model = infer_data_job(
-                            model,
-                            work_dir=pred_root,
-                            model_name=model_name,
-                            dataset=dataset,
-                            result_file=result_file,
-                            dataset_name=dataset_name,
-                            dataset_alias_name=dataset_alias_name,
-                            verbose=args.verbose,
-                            api_nproc=args.api_nproc,
-                            retry_failed=not args.keep_failed,
-                            use_vllm=args.use_vllm)
+                        model = infer_data_job(model,
+                                               work_dir=pred_root,
+                                               model_name=model_name,
+                                               dataset=dataset,
+                                               result_file=result_file,
+                                               dataset_name=dataset_name,
+                                               dataset_alias_name=dataset_alias_name,
+                                               verbose=args.verbose,
+                                               api_nproc=args.api_nproc,
+                                               retry_failed=not args.keep_failed,
+                                               use_vllm=args.use_vllm)
 
                 if WORLD_SIZE > 1:
                     dist.barrier()
 
                 # Only RANK 0 handles the evaluation part
                 if RANK == 0:
+                    if hasattr(dataset, 'validate_completed_predictions'):
+                        dataset.validate_completed_predictions(result_file)
                     if args.mode != 'infer':
                         upsert_dataset_status(
                             run_dir=pred_root,
@@ -976,8 +986,8 @@ def run_local_mode(args):
                         )
                         continue
                     elif dataset_name in [
-                        'MMBench_TEST_CN', 'MMBench_TEST_EN', 'MMBench', 'MMBench_CN',
-                        'MMBench_TEST_CN_V11', 'MMBench_TEST_EN_V11', 'MMBench_V11', 'MMBench_CN_V11'
+                            'MMBench_TEST_CN', 'MMBench_TEST_EN', 'MMBench', 'MMBench_CN', 'MMBench_TEST_CN_V11',
+                            'MMBench_TEST_EN_V11', 'MMBench_V11', 'MMBench_CN_V11'
                     ] and not MMBenchOfficialServer(dataset_name):
                         logger.error(
                             f'Can not evaluate {dataset_name} on non-official servers, will skip the evaluation.')
@@ -1036,10 +1046,8 @@ def run_local_mode(args):
 
                     # Create the symbolic links for the prediction files
                     files = [
-                        path for path in pred_root.iterdir()
-                        if path.is_file() and (
-                            f'{model_name}_{dataset_alias_name}' in path.name or path.name == 'status.json'
-                        )
+                        path for path in pred_root.iterdir() if path.is_file() and (
+                            f'{model_name}_{dataset_alias_name}' in path.name or path.name == 'status.json')
                     ]
                     # Exclude temporary intermediate files
                     files = [
@@ -1056,6 +1064,7 @@ def run_local_mode(args):
                         link_addr.symlink_to(rel_target)
 
             except Exception as e:
+                failed_combinations.append((model_name, dataset_alias_name))
                 logger.exception(
                     f'Model {model_name} x Dataset {dataset_alias_name} ({dataset_name}) combination failed: {e}, '
                     'skipping this combination.')
@@ -1076,7 +1085,13 @@ def run_local_mode(args):
             log_run_benchmark_report(pred_root)
 
     if WORLD_SIZE > 1:
+        if strict_failure_reporting:
+            failures = [None] * WORLD_SIZE
+            dist.all_gather_object(failures, failed_combinations)
+            failed_combinations = [item for rank_failures in failures for item in rank_failures]
         dist.destroy_process_group()
+    if strict_failure_reporting and failed_combinations:
+        raise RuntimeError(f'Evaluation failed for {failed_combinations}; inspect this run status and logs')
 
 
 def run_api_mode(args):
@@ -1165,6 +1180,9 @@ def run_api_mode(args):
     for data_entry_name in args.data:
         spec = resolve_dataset_spec(data_entry_name, args.data_config)
         ds_name = spec.dataset_name
+        if ds_name.startswith('OmniCompass'):
+            raise ValueError('OmniCompass API evaluation uses run.py --config without --api-mode '
+                             'so protocol validation and resumable video checkpoints remain active')
         dataset_alias_name = spec.dataset_alias_name
         dataset_class_name = spec.dataset_class_name
         if dataset_alias_name == ds_name:
@@ -1182,8 +1200,7 @@ def run_api_mode(args):
                 continue
 
             # Prepare the result file.
-            result_file = get_pred_file_path(
-                pred_root, model_name, dataset_alias_name, use_env_format=True)
+            result_file = get_pred_file_path(pred_root, model_name, dataset_alias_name, use_env_format=True)
 
             # Skip special datasets.
             if ds_name in ['MMMU_TEST']:
@@ -1223,10 +1240,8 @@ def run_api_mode(args):
                 reuse_aux=args.reuse_aux,
             )
             if args.mode == 'eval' and not reuse_ctx['prediction_complete']:
-                logger.error(
-                    f'No reusable completed prediction found for {model_name} x {ds_name}, '
-                    'skipping this dataset in eval mode.'
-                )
+                logger.error(f'No reusable completed prediction found for {model_name} x {ds_name}, '
+                             'skipping this dataset in eval mode.')
                 try:
                     if Path(result_file).exists():
                         skip_reason = 'Incomplete infer result'
@@ -1244,8 +1259,7 @@ def run_api_mode(args):
                     )
                 except Exception as summary_err:
                     logger.warning(
-                        f'Failed to update status.json for {model_name} x {dataset_alias_name}: {summary_err}'
-                    )
+                        f'Failed to update status.json for {model_name} x {dataset_alias_name}: {summary_err}')
                 continue
 
             # Complete the dataset config
@@ -1255,19 +1269,17 @@ def run_api_mode(args):
                 dataset_type = 'mt'
             else:
                 dataset_type = 'image'
-            dataset_config = DatasetConfig(
-                dataset_name=ds_name,
-                dataset_alias_name=dataset_alias_name,
-                dataset_class_name=dataset_class_name,
-                dataset_obj=dataset,
-                dataset_type=dataset_type,
-                model_obj=model_builder(),
-                model_name=model_name,
-                work_dir=str(pred_root),
-                result_file=result_file,
-                judge_kwargs=judge_kwargs,
-                verbose=args.verbose
-            )
+            dataset_config = DatasetConfig(dataset_name=ds_name,
+                                           dataset_alias_name=dataset_alias_name,
+                                           dataset_class_name=dataset_class_name,
+                                           dataset_obj=dataset,
+                                           dataset_type=dataset_type,
+                                           model_obj=model_builder(),
+                                           model_name=model_name,
+                                           work_dir=str(pred_root),
+                                           result_file=result_file,
+                                           judge_kwargs=judge_kwargs,
+                                           verbose=args.verbose)
             dataset_configs.append(dataset_config)
 
         except Exception as e:
@@ -1282,15 +1294,13 @@ def run_api_mode(args):
     logger.info(f"Starting API Pipeline for model: {model_name}")
     logger.info(f"Total datasets: {len(dataset_configs)}")
 
-    pipeline = APIEvalPipeline(
-        dataset_configs=dataset_configs,
-        concurrency=args.api_nproc,
-        monitor_interval=args.monitor_interval,
-        run_infer=args.mode in {'infer', 'all'},
-        run_eval=args.mode in {'eval', 'all'},
-        debug=args.debug,
-        retry_failed=not args.keep_failed
-    )
+    pipeline = APIEvalPipeline(dataset_configs=dataset_configs,
+                               concurrency=args.api_nproc,
+                               monitor_interval=args.monitor_interval,
+                               run_infer=args.mode in {'infer', 'all'},
+                               run_eval=args.mode in {'eval', 'all'},
+                               debug=args.debug,
+                               retry_failed=not args.keep_failed)
 
     try:
         asyncio.run(pipeline.run())

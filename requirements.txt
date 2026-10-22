@@ -2,6 +2,7 @@ accelerate
 anls>=0.0.2
 antlr4-python3-runtime==4.11.1
 apted>=1.0.3
+av>=17.1.0,<18.0.0
 bert_score
 cairosvg
 cd-fvd

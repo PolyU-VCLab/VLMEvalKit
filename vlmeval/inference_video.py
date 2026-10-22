@@ -1,6 +1,9 @@
+# yapf: disable
 import argparse
 import os
 import os.path as osp
+import stat
+import uuid
 import warnings
 from pathlib import Path
 
@@ -14,7 +17,29 @@ from vlmeval.smp import (dump, get_pred_file_path, get_rank_and_world_size, load
                          load_prediction_file, resolve_dataset_alias_name)
 from vlmeval.utils import track_progress_rich
 
+# yapf: enable
+
 FAIL_MSG = 'Failed to obtain answer via API.'
+
+
+def _checkpoint(data, path):
+    """Replace checkpoints only after the complete new file reaches disk."""
+    target = Path(path)
+    temporary = target.with_name(f'.{target.stem}.{uuid.uuid4().hex}{target.suffix}')
+    with temporary.open('xb') as file:
+        # Capture the umask-derived mode without changing the process-wide umask.
+        mode = stat.S_IMODE(os.fstat(file.fileno()).st_mode)
+        os.chmod(temporary, 0o600)
+    try:
+        dump(data, str(temporary), strict=True)
+        with temporary.open('rb') as file:
+            if target.exists():
+                mode = stat.S_IMODE(target.stat().st_mode)
+            os.chmod(temporary, mode)
+            os.fsync(file.fileno())
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def parse_args():
@@ -27,25 +52,55 @@ def parse_args():
     return args
 
 
+def _reusable_prediction(dataset, value):
+    if FAIL_MSG in str(value):
+        return False
+    check = getattr(dataset, 'is_reusable_prediction', None)
+    return check(value) if check else True
+
+
+def _build_video_model(model, model_name, use_vllm):
+    if not isinstance(model, str):
+        return model
+    kwargs = {}
+    if model_name is not None and any(name in model_name
+                                      for name in ('Llama-4', 'Qwen2-VL', 'Qwen2.5-VL', 'Qwen2.5-Omni')):
+        kwargs['use_vllm'] = use_vllm
+    # Prevent Transformers from enabling TP when torchrun owns distribution.
+    world_size = os.environ.pop('WORLD_SIZE', None)
+    try:
+        return supported_VLM[model_name](**kwargs)
+    finally:
+        if world_size is not None:
+            os.environ['WORLD_SIZE'] = world_size
+
+
 # Only API model is accepted
-def infer_data_api(model, work_dir, model_name, dataset, samples_dict={}, api_nproc=4, retry_failed=True,
-                   dataset_name=None, dataset_alias_name=None):
+def infer_data_api(model,
+                   work_dir,
+                   model_name,
+                   dataset,
+                   samples_dict={},
+                   api_nproc=4,
+                   retry_failed=True,
+                   dataset_name=None,
+                   dataset_alias_name=None):
     rank, world_size = get_rank_and_world_size()
     assert rank == 0 and world_size == 1
     dataset_name = dataset_name or dataset.dataset_name
     dataset_alias_name = resolve_dataset_alias_name(dataset_name, dataset_alias_name)
     model = supported_VLM[model_name]() if isinstance(model, str) else model
     assert getattr(model, 'is_api', False)
+    if hasattr(dataset, 'validate_model'):
+        dataset.validate_model(model)
 
     indices = list(samples_dict.keys())
     # Build str→orig mapping for checkpoint key conversion
     index_str_to_orig = {str(i): i for i in indices}
     if getattr(model, 'backend', None) == 'genai':
         if dataset.nframe > 0:
-            print(
-                'Gemini model (with genai backend) does not support nframe, '
-                'will set its VIDEO_LLM to False to enable multi-image input for video.'
-            )
+            print('Gemini model (with genai backend) does not support nframe, '
+                  'will set its VIDEO_LLM to False to enable multi-image input for video.')
             setattr(model, 'VIDEO_LLM', False)
         else:
             print('Gemini model (with genai backend) is a video-llm, '
@@ -69,6 +124,7 @@ def infer_data_api(model, work_dir, model_name, dataset, samples_dict={}, api_np
         nproc=api_nproc,
         save=struct_tmp_file,
         keys=indices,
+        save_func=_checkpoint,
     )
 
     if dataset.nframe > 0:
@@ -77,7 +133,11 @@ def infer_data_api(model, work_dir, model_name, dataset, samples_dict={}, api_np
         out_file = f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.fps}fps_{packstr}_checkpoint.pkl'
     res = load(out_file) if osp.exists(out_file) else {}
     if retry_failed:
-        res = {k: v for k, v in res.items() if FAIL_MSG not in str(v)}
+        filtered = {k: v for k, v in res.items() if _reusable_prediction(dataset, v)}
+        if len(filtered) != len(res):
+            # The progress helper independently reads this checkpoint.
+            _checkpoint(filtered, out_file)
+        res = filtered
 
     structs = [s for i, s in zip(indices, structs) if str(i) not in res]
     structs = [struct for struct in structs if struct is not None]
@@ -88,7 +148,13 @@ def infer_data_api(model, work_dir, model_name, dataset, samples_dict={}, api_np
 
     if len(structs):
         str_indices = [str(i) for i in indices]
-        track_progress_rich(gen_func, structs, nproc=api_nproc, chunksize=api_nproc, save=out_file, keys=str_indices)
+        track_progress_rich(gen_func,
+                            structs,
+                            nproc=api_nproc,
+                            chunksize=api_nproc,
+                            save=out_file,
+                            keys=str_indices,
+                            save_func=_checkpoint)
 
     # Load the full accumulated results (str keys)
     if osp.exists(out_file):
@@ -98,14 +164,25 @@ def infer_data_api(model, work_dir, model_name, dataset, samples_dict={}, api_np
     return result
 
 
-def infer_data(model, model_name, work_dir, dataset, out_file, verbose=False, api_nproc=4, use_vllm=False,
-               retry_failed=True, dataset_name=None, dataset_alias_name=None):
+def infer_data(model,
+               model_name,
+               work_dir,
+               dataset,
+               out_file,
+               verbose=False,
+               api_nproc=4,
+               use_vllm=False,
+               retry_failed=True,
+               dataset_name=None,
+               dataset_alias_name=None):
     dataset_name = dataset_name or dataset.dataset_name
     dataset_alias_name = resolve_dataset_alias_name(dataset_name, dataset_alias_name)
     prev_file = f'{work_dir}/{model_name}_{dataset_alias_name}_PREV.pkl'
     res = load(prev_file) if osp.exists(prev_file) else {}
     if osp.exists(out_file):
         res.update(load(out_file))
+    if retry_failed:
+        res = {k: v for k, v in res.items() if _reusable_prediction(dataset, v)}
     rank, world_size = get_rank_and_world_size()
 
     sample_indices = list(dataset.videos) if getattr(dataset, 'pack', False) else list(dataset.data['index'])
@@ -117,49 +194,33 @@ def infer_data(model, model_name, work_dir, dataset, out_file, verbose=False, ap
         return model
     sample_indices_subrem = [x for x in sample_indices_sub if x not in res]
 
-    kwargs = {}
-    if model_name is not None and (
-        'Llama-4' in model_name
-        or 'Qwen2-VL' in model_name
-        or 'Qwen2.5-VL' in model_name
-        or 'Qwen2.5-Omni' in model_name
-    ):
-        kwargs = {'use_vllm': use_vllm}
-
-    # (25.06.05) In newer version of transformers (after 4.50), with device_map='auto' and torchrun launcher,
-    # Transformers automatically adopt TP parallelism, which leads to compatibility problems with VLMEvalKit
-    # (In VLMEvalKit, we use torchrun to launch multiple model instances on a single node).
-    # To bypass this problem, we unset `WORLD_SIZE` before building the model to not use TP parallel.
-    ws_bak = os.environ.pop('WORLD_SIZE', None)
-    model = supported_VLM[model_name](**kwargs) if isinstance(model, str) else model
-    if ws_bak:
-        os.environ['WORLD_SIZE'] = ws_bak
+    model = _build_video_model(model, model_name, use_vllm)
 
     is_api = getattr(model, 'is_api', False)
+    if hasattr(dataset, 'validate_model'):
+        dataset.validate_model(model)
     if is_api:
         assert world_size == 1
-        supp = infer_data_api(
-            model=model,
-            work_dir=work_dir,
-            model_name=model_name,
-            dataset=dataset,
-            samples_dict={k: sample_map[k] for k in sample_indices_subrem},
-            api_nproc=api_nproc,
-            retry_failed=retry_failed,
-            dataset_name=dataset_name,
-            dataset_alias_name=dataset_alias_name)
+        supp = infer_data_api(model=model,
+                              work_dir=work_dir,
+                              model_name=model_name,
+                              dataset=dataset,
+                              samples_dict={k: sample_map[k]
+                                            for k in sample_indices_subrem},
+                              api_nproc=api_nproc,
+                              retry_failed=retry_failed,
+                              dataset_name=dataset_name,
+                              dataset_alias_name=dataset_alias_name)
         for k in sample_indices_subrem:
             assert k in supp
         res.update(supp)
-        dump(res, out_file)
+        _checkpoint(res, out_file)
         return model
 
     assert not getattr(dataset, 'pack', False), 'Current model not supported pack mode!'
     if 'megabench' in dataset_name.lower() and 'llava_onevision' in model_name:
-        print(
-            'LLaVA-OneVision does not support Megabench dataset as video dataset, '
-            'will set its VIDEO_LLM to False to enable multi-image input for video.'
-        )
+        print('LLaVA-OneVision does not support Megabench dataset as video dataset, '
+              'will set its VIDEO_LLM to False to enable multi-image input for video.')
         setattr(model, 'VIDEO_LLM', False)
 
     for i, idx in tqdm(enumerate(sample_indices_subrem)):
@@ -183,11 +244,7 @@ def infer_data(model, model_name, work_dir, dataset, out_file, verbose=False, ap
                 raise ValueError(f'nframe is not suitable for {model_name}')
             else:
                 setattr(model, 'fps', None)
-        if (
-            'Qwen2-VL' in model_name
-            or 'Qwen2.5-VL' in model_name
-            or 'Qwen2.5-Omni' in model_name
-        ):
+        if ('Qwen2-VL' in model_name or 'Qwen2.5-VL' in model_name or 'Qwen2.5-Omni' in model_name):
             if getattr(model, 'nframe', None) is None and dataset.nframe > 0:
                 print(f'using {model_name} default setting for video, dataset.nframe is ommitted')
             if getattr(model, 'fps', None) is None and dataset.fps > 0:
@@ -198,13 +255,11 @@ def infer_data(model, model_name, work_dir, dataset, out_file, verbose=False, ap
         if hasattr(model, 'use_custom_prompt') and model.use_custom_prompt(sample_dataset_name):
             if dataset.nframe == 0:
                 raise ValueError(f'nframe must be set for custom prompt, fps is not suitable for {model_name}')
-            struct = model.build_prompt(
-                dataset.data.iloc[sample_map[idx]], dataset=dataset, video_llm=getattr(model, 'VIDEO_LLM', False)
-            )
+            struct = model.build_prompt(dataset.data.iloc[sample_map[idx]],
+                                        dataset=dataset,
+                                        video_llm=getattr(model, 'VIDEO_LLM', False))
         else:
-            struct = dataset.build_prompt(
-                sample_map[idx], video_llm=getattr(model, 'VIDEO_LLM', False)
-            )
+            struct = dataset.build_prompt(sample_map[idx], video_llm=getattr(model, 'VIDEO_LLM', False))
         if struct is None:
             continue
 
@@ -225,11 +280,11 @@ def infer_data(model, model_name, work_dir, dataset, out_file, verbose=False, ap
             print(response, flush=True)
 
         res[idx] = response
-        if (i + 1) % 20 == 0:
-            dump(res, out_file)
+        if dataset_name.startswith('OmniCompass') or (i + 1) % 20 == 0:
+            _checkpoint(res, out_file)
 
     res = {k: res[k] for k in sample_indices_sub}
-    dump(res, out_file)
+    _checkpoint(res, out_file)
     return model
 
 
@@ -253,16 +308,26 @@ def infer_data_job_video(model,
     if result_file is None:
         result_file = get_pred_file_path(work_dir, model_name, dataset_alias_name, use_env_format=True)
 
+    if hasattr(dataset, 'validate_inference_cache'):
+        cache_kwargs = {}
+        if hasattr(dataset, 'inference_model_config'):
+            # Hash resolved defaults, endpoints and model metadata on every path,
+            # including completed-result reuse and later datasets in the same run.
+            model = _build_video_model(model, model_name, use_vllm)
+            dataset.validate_model(model)
+            cache_kwargs['generation_config'] = dataset.inference_model_config(model)
+        dataset.validate_inference_cache(work_dir, model_name, result_file, dataset_alias_name, **cache_kwargs)
+
     prev_file = f'{work_dir}/{model_name}_{dataset_alias_name}_PREV.pkl'
     if osp.exists(result_file):
         if retry_failed:
             if rank == 0:
                 data = load_prediction_file(result_file)
                 results = {k: v for k, v in zip(data['index'], data['prediction'])}
-                results = {k: v for k, v in results.items() if FAIL_MSG not in str(v)}
+                results = {k: v for k, v in results.items() if _reusable_prediction(dataset, v)}
                 if len(results) == len(data):
                     return model
-                dump(results, prev_file)
+                _checkpoint(results, prev_file)
             if world_size > 1:
                 dist.barrier()
         else:
@@ -271,18 +336,17 @@ def infer_data_job_video(model,
     tmpl = osp.join(work_dir, '{}' + f'{world_size}_{Path(result_file).stem}.pkl')
     out_file = tmpl.format(rank)
 
-    model = infer_data(
-        model=model,
-        model_name=model_name,
-        work_dir=work_dir,
-        dataset=dataset,
-        out_file=out_file,
-        verbose=verbose,
-        api_nproc=api_nproc,
-        use_vllm=use_vllm,
-        retry_failed=retry_failed,
-        dataset_name=dataset_name,
-        dataset_alias_name=dataset_alias_name)
+    model = infer_data(model=model,
+                       model_name=model_name,
+                       work_dir=work_dir,
+                       dataset=dataset,
+                       out_file=out_file,
+                       verbose=verbose,
+                       api_nproc=api_nproc,
+                       use_vllm=use_vllm,
+                       retry_failed=retry_failed,
+                       dataset_name=dataset_name,
+                       dataset_alias_name=dataset_alias_name)
 
     if world_size > 1:
         dist.barrier()
@@ -303,19 +367,17 @@ def infer_data_job_video(model,
             if 'image' in meta:
                 meta.pop('image')
 
-        dump(meta, result_file)
+        _checkpoint(meta, result_file)
         for i in range(world_size):
             os.remove(tmpl.format(i))
         # Clean up API checkpoint files
         packstr = 'pack' if getattr(dataset, 'pack', False) else 'nopack'
         if dataset.nframe > 0:
             checkpoint_file = (
-                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.nframe}frame_{packstr}_checkpoint.pkl'
-            )
+                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.nframe}frame_{packstr}_checkpoint.pkl')
         else:
             checkpoint_file = (
-                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.fps}fps_{packstr}_checkpoint.pkl'
-            )
+                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.fps}fps_{packstr}_checkpoint.pkl')
         if osp.exists(checkpoint_file):
             os.remove(checkpoint_file)
         # Clean up PREV file

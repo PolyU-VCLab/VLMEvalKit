@@ -5,43 +5,31 @@ from vlmeval.smp.dataset_alias import DatasetSpec
 def _video_spec(cls, **kwargs):
     dataset = kwargs.get('dataset')
     if not isinstance(dataset, str) or not dataset.strip():
-        raise ValueError(
-            f'Predefined video dataset for {cls.__name__} must set a non-empty dataset'
-        )
+        raise ValueError(f'Predefined video dataset for {cls.__name__} must set a non-empty dataset')
     return DatasetSpec(
         dataset_alias_name='',
         dataset_name=dataset,
         dataset_class_name=cls.__name__,
-        build_config={'class': cls.__name__, **kwargs},
+        build_config={
+            'class': cls.__name__,
+            **kwargs
+        },
         source='predefined_shortcut',
     )
 
 
 video_eval_pro_dataset = {
-    'VideoEval-Pro-MCQ_16frame': _video_spec(
-        VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', nframe=16
-    ),
-    'VideoEval-Pro-MCQ_32frame': _video_spec(
-        VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', nframe=32
-    ),
-    'VideoEval-Pro-MCQ_64frame': _video_spec(
-        VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', nframe=64
-    ),
-    'VideoEval-Pro-MCQ_1fps': _video_spec(
-        VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', fps=1.0
-    ),
-    'VideoEval-Pro-OpenEnded_16frame': _video_spec(
-        VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded', nframe=16
-    ),
-    'VideoEval-Pro-OpenEnded_32frame': _video_spec(
-        VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded', nframe=32
-    ),
-    'VideoEval-Pro-OpenEnded_64frame': _video_spec(
-        VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded', nframe=64
-    ),
-    'VideoEval-Pro-OpenEnded_1fps': _video_spec(
-        VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded', fps=1.0
-    ),
+    'VideoEval-Pro-MCQ_16frame': _video_spec(VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', nframe=16),
+    'VideoEval-Pro-MCQ_32frame': _video_spec(VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', nframe=32),
+    'VideoEval-Pro-MCQ_64frame': _video_spec(VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', nframe=64),
+    'VideoEval-Pro-MCQ_1fps': _video_spec(VideoEvalPro_MCQ, dataset='VideoEval-Pro-MCQ', fps=1.0),
+    'VideoEval-Pro-OpenEnded_16frame': _video_spec(VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded',
+                                                   nframe=16),
+    'VideoEval-Pro-OpenEnded_32frame': _video_spec(VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded',
+                                                   nframe=32),
+    'VideoEval-Pro-OpenEnded_64frame': _video_spec(VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded',
+                                                   nframe=64),
+    'VideoEval-Pro-OpenEnded_1fps': _video_spec(VideoEvalPro_OpenEnded, dataset='VideoEval-Pro-OpenEnded', fps=1.0),
 }
 
 vcrbench_dataset = {
@@ -107,50 +95,53 @@ video_odyssey_dataset = {
 
 videommev2_dataset = {
     # ── No subtitle ──
-    'Video-MME-v2_64frame': _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64),
-    'Video-MME-v2_1fps': _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0),
+    'Video-MME-v2_64frame':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64),
+    'Video-MME-v2_1fps':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0),
     # ── Subtitle (non-interleave, concatenated as text block) ──
-    'Video-MME-v2_64frame_subs': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64, with_subtitle=True),
-    'Video-MME-v2_1fps_subs': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0, with_subtitle=True),
+    'Video-MME-v2_64frame_subs':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, with_subtitle=True),
+    'Video-MME-v2_1fps_subs':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0, with_subtitle=True),
     # ── Subtitle (interleave, timestamp-aligned between frames) ──
-    'Video-MME-v2_64frame_subs_interleave': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        with_subtitle=True, subtitle_interleave=True),
-    'Video-MME-v2_1fps_subs_interleave': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0,
-        with_subtitle=True, subtitle_interleave=True),
+    'Video-MME-v2_64frame_subs_interleave':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, with_subtitle=True, subtitle_interleave=True),
+    'Video-MME-v2_1fps_subs_interleave':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0, with_subtitle=True, subtitle_interleave=True),
     # ── Reasoning (no subtitle) ──
-    'Video-MME-v2_64frame_reasoning': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64, reasoning=True),
+    'Video-MME-v2_64frame_reasoning':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, reasoning=True),
     # ── Reasoning + subtitle (non-interleave) ──
-    'Video-MME-v2_64frame_reasoning_subs': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        reasoning=True, with_subtitle=True),
+    'Video-MME-v2_64frame_reasoning_subs':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, reasoning=True, with_subtitle=True),
     # ── Reasoning + subtitle (interleave) ──
-    'Video-MME-v2_64frame_reasoning_subs_interleave': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        reasoning=True, with_subtitle=True, subtitle_interleave=True),
+    'Video-MME-v2_64frame_reasoning_subs_interleave':
+    _video_spec(VideoMMEv2,
+                dataset='Video-MME-v2',
+                nframe=64,
+                reasoning=True,
+                with_subtitle=True,
+                subtitle_interleave=True),
     # ── Resize (no subtitle) ──
-    'Video-MME-v2_64frame_resize': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        resize_target_area=448 * 448),
-    'Video-MME-v2_1fps_resize': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0,
-        resize_target_area=448 * 448),
+    'Video-MME-v2_64frame_resize':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, resize_target_area=448 * 448),
+    'Video-MME-v2_1fps_resize':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=0, fps=1.0, resize_target_area=448 * 448),
     # ── Resize + subtitle ──
-    'Video-MME-v2_64frame_resize_subs': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        resize_target_area=448 * 448, with_subtitle=True),
+    'Video-MME-v2_64frame_resize_subs':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, resize_target_area=448 * 448, with_subtitle=True),
     # ── Resize + subtitle interleave ──
-    'Video-MME-v2_64frame_resize_subs_interleave': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        resize_target_area=448 * 448, with_subtitle=True, subtitle_interleave=True),
+    'Video-MME-v2_64frame_resize_subs_interleave':
+    _video_spec(VideoMMEv2,
+                dataset='Video-MME-v2',
+                nframe=64,
+                resize_target_area=448 * 448,
+                with_subtitle=True,
+                subtitle_interleave=True),
     # ── Resize + reasoning ──
-    'Video-MME-v2_64frame_resize_reasoning': _video_spec(
-        VideoMMEv2, dataset='Video-MME-v2', nframe=64,
-        resize_target_area=448 * 448, reasoning=True),
+    'Video-MME-v2_64frame_resize_reasoning':
+    _video_spec(VideoMMEv2, dataset='Video-MME-v2', nframe=64, resize_target_area=448 * 448, reasoning=True),
 }
 
 videommmu_dataset = {
@@ -190,48 +181,37 @@ tempcompass_dataset = {
 # in the CGBench_MCQ_Grounding_Mini and CGBench_MCQ_Grounding datasets;
 # the metric open-ended is implemented in the CGBench_OpenEnded_Mini and CGBench_OpenEnded datasets.
 cgbench_dataset = {
-    'CGBench_MCQ_Grounding_Mini_8frame_subs_subt': _video_spec(
-        CGBench_MCQ_Grounding_Mini,
-        dataset='CG-Bench_MCQ_Grounding_Mini',
-        nframe=8,
-        use_subtitle=True,
-        use_subtitle_time=True
-    ),
-    'CGBench_OpenEnded_Mini_8frame_subs_subt_ft': _video_spec(
-        CGBench_OpenEnded_Mini,
-        dataset='CG-Bench_OpenEnded_Mini',
-        nframe=8,
-        use_subtitle=True,
-        use_subtitle_time=True,
-        use_frame_time=True
-    ),
-    'CGBench_MCQ_Grounding_32frame_subs': _video_spec(
-        CGBench_MCQ_Grounding,
-        dataset='CG-Bench_MCQ_Grounding',
-        nframe=32,
-        use_subtitle=True
-    ),
-    'CGBench_OpenEnded_8frame': _video_spec(
-        CGBench_OpenEnded,
-        dataset='CG-Bench_OpenEnded',
-        nframe=8
-    ),
-    'CGBench_MCQ_Grounding_16frame_subs_subt_ft': _video_spec(
-        CGBench_MCQ_Grounding,
-        dataset='CG-Bench_MCQ_Grounding',
-        nframe=16,
-        use_subtitle=True,
-        use_subtitle_time=True,
-        use_frame_time=True
-    ),
-    'CGBench_OpenEnded_16frame_subs_subt_ft': _video_spec(
-        CGBench_OpenEnded,
-        dataset='CG-Bench_OpenEnded',
-        nframe=16,
-        use_subtitle=True,
-        use_subtitle_time=True,
-        use_frame_time=True
-    )
+    'CGBench_MCQ_Grounding_Mini_8frame_subs_subt':
+    _video_spec(CGBench_MCQ_Grounding_Mini,
+                dataset='CG-Bench_MCQ_Grounding_Mini',
+                nframe=8,
+                use_subtitle=True,
+                use_subtitle_time=True),
+    'CGBench_OpenEnded_Mini_8frame_subs_subt_ft':
+    _video_spec(CGBench_OpenEnded_Mini,
+                dataset='CG-Bench_OpenEnded_Mini',
+                nframe=8,
+                use_subtitle=True,
+                use_subtitle_time=True,
+                use_frame_time=True),
+    'CGBench_MCQ_Grounding_32frame_subs':
+    _video_spec(CGBench_MCQ_Grounding, dataset='CG-Bench_MCQ_Grounding', nframe=32, use_subtitle=True),
+    'CGBench_OpenEnded_8frame':
+    _video_spec(CGBench_OpenEnded, dataset='CG-Bench_OpenEnded', nframe=8),
+    'CGBench_MCQ_Grounding_16frame_subs_subt_ft':
+    _video_spec(CGBench_MCQ_Grounding,
+                dataset='CG-Bench_MCQ_Grounding',
+                nframe=16,
+                use_subtitle=True,
+                use_subtitle_time=True,
+                use_frame_time=True),
+    'CGBench_OpenEnded_16frame_subs_subt_ft':
+    _video_spec(CGBench_OpenEnded,
+                dataset='CG-Bench_OpenEnded',
+                nframe=16,
+                use_subtitle=True,
+                use_subtitle_time=True,
+                use_frame_time=True)
 }
 
 megabench_dataset = {
@@ -242,11 +222,12 @@ megabench_dataset = {
 }
 
 moviechat1k_dataset = {
-    'moviechat1k_breakpoint_8frame': _video_spec(MovieChat1k, dataset='MovieChat1k', subset='breakpoint', nframe=8),
-    'moviechat1k_global_14frame': _video_spec(MovieChat1k, dataset='MovieChat1k', subset='global', nframe=14),
-    'moviechat1k_global_8frame_limit0.01': _video_spec(
-        MovieChat1k, dataset='MovieChat1k', subset='global', nframe=8, limit=0.01
-    )
+    'moviechat1k_breakpoint_8frame':
+    _video_spec(MovieChat1k, dataset='MovieChat1k', subset='breakpoint', nframe=8),
+    'moviechat1k_global_14frame':
+    _video_spec(MovieChat1k, dataset='MovieChat1k', subset='global', nframe=14),
+    'moviechat1k_global_8frame_limit0.01':
+    _video_spec(MovieChat1k, dataset='MovieChat1k', subset='global', nframe=8, limit=0.01)
 }
 
 vdc_dataset = {
@@ -298,9 +279,10 @@ cg_av_counting_dataset = {
 }
 
 egoexobench_dataset = {
-    'EgoExoBench_64frame': _video_spec(EgoExoBench_MCQ, dataset='EgoExoBench_MCQ', nframe=64, skip_EgoExo4D=False),  # noqa: E501
-    'EgoExoBench_64frame_skip_EgoExo4D': _video_spec(EgoExoBench_MCQ, dataset='EgoExoBench_MCQ', nframe=64, skip_EgoExo4D=True)  # noqa: E501
-
+    'EgoExoBench_64frame':
+    _video_spec(EgoExoBench_MCQ, dataset='EgoExoBench_MCQ', nframe=64, skip_EgoExo4D=False),  # noqa: E501
+    'EgoExoBench_64frame_skip_EgoExo4D':
+    _video_spec(EgoExoBench_MCQ, dataset='EgoExoBench_MCQ', nframe=64, skip_EgoExo4D=True)  # noqa: E501
 }
 
 revsi_dataset = {
@@ -320,44 +302,32 @@ dream_1k_dataset = {
 
 av_speakerbench_dataset = {
     # frame-sampled variants
-    'AV-SpeakerBench_audiovisual_8frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=True
-    ),
-    'AV-SpeakerBench_audiovisual_16frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=True
-    ),
-    'AV-SpeakerBench_visual_8frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=False
-    ),
-    'AV-SpeakerBench_visual_16frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=False
-    ),
-    'AV-SpeakerBench_audio_only_8frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=True, audio_only=True
-    ),
-    'AV-SpeakerBench_audio_only_16frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=True, audio_only=True
-    ),
+    'AV-SpeakerBench_audiovisual_8frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=True),
+    'AV-SpeakerBench_audiovisual_16frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=True),
+    'AV-SpeakerBench_visual_8frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=False),
+    'AV-SpeakerBench_visual_16frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=False),
+    'AV-SpeakerBench_audio_only_8frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=True, audio_only=True),
+    'AV-SpeakerBench_audio_only_16frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=True, audio_only=True),
     # fps-based variants
-    'AV-SpeakerBench_audiovisual_1fps': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=True
-    ),
-    'AV-SpeakerBench_visual_1fps': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=False
-    ),
-    'AV-SpeakerBench_audio_only_1fps': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=True, audio_only=True
-    ),
+    'AV-SpeakerBench_audiovisual_1fps':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=True),
+    'AV-SpeakerBench_visual_1fps':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=False),
+    'AV-SpeakerBench_audio_only_1fps':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=True, audio_only=True),
     # shorthand aliases mapping to audiovisual
-    'AV-SpeakerBench_8frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=True
-    ),
-    'AV-SpeakerBench_16frame': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=True
-    ),
-    'AV-SpeakerBench_1fps': _video_spec(
-        AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=True
-    ),
+    'AV-SpeakerBench_8frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=8, use_audio=True),
+    'AV-SpeakerBench_16frame':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', nframe=16, use_audio=True),
+    'AV-SpeakerBench_1fps':
+    _video_spec(AVSpeakerBench, dataset='AV-SpeakerBench', fps=1.0, use_audio=True),
 }
 
 omtg_dataset = {
@@ -475,21 +445,32 @@ vue_tr_dataset = {
     'VUE-TR-V2-Vision_256frame': _video_spec(VUETR, dataset='VUE-TR-V2-Vision', nframe=256, fps=-1),
 }
 
+omnicompass_dataset = {
+    f'OmniCompass_{track}_{frames}frame': _video_spec(OmniCompass, dataset=f'OmniCompass_{track}', nframe=frames)
+    for track in ('VL', 'AV')
+    for frames in (8, 16, 32, 64, 128)
+}
+omnicompass_dataset.update({
+    f'OmniCompass_{track}_1fps':
+    _video_spec(OmniCompass, dataset=f'OmniCompass_{track}', nframe=0, fps=1.0)
+    for track in ('VL', 'AV')
+})
+
 dataset_groups = [
-    video_eval_pro_dataset,
-    mmbench_video_dataset, mvbench_dataset, videomme_dataset, sis_bench_dataset, video_odyssey_dataset,
-    videommev2_dataset, videommmu_dataset,
-    longvideobench_dataset, mlvu_dataset, tempcompass_dataset, cgbench_dataset, worldsense_dataset, tamperbench_dataset,
-    megabench_dataset, qbench_video_dataset, moviechat1k_dataset, vdc_dataset, video_holmes_dataset, vcrbench_dataset,
-    cg_av_counting_dataset, video_mmlu_dataset, egoexobench_dataset, dream_1k_dataset, video_tt_dataset,
-    video_vsi_dataset, mvu_eval_dataset, omtg_dataset, v2pbench_dataset, av_speakerbench_dataset,
-    favor_bench_dataset, timelens_bench_dataset, vue_tr_dataset
+    omnicompass_dataset, video_eval_pro_dataset, mmbench_video_dataset, mvbench_dataset, videomme_dataset,
+    sis_bench_dataset, video_odyssey_dataset, videommev2_dataset, videommmu_dataset,
+    longvideobench_dataset, mlvu_dataset, tempcompass_dataset,
+    cgbench_dataset, worldsense_dataset, tamperbench_dataset, megabench_dataset, qbench_video_dataset,
+    moviechat1k_dataset, vdc_dataset, video_holmes_dataset, vcrbench_dataset, cg_av_counting_dataset,
+    video_mmlu_dataset, egoexobench_dataset, dream_1k_dataset, video_tt_dataset, video_vsi_dataset, mvu_eval_dataset,
+    omtg_dataset, v2pbench_dataset, av_speakerbench_dataset, favor_bench_dataset,
+    timelens_bench_dataset, vue_tr_dataset
 ]
 
 # add by EASI team
 dataset_groups += [
-    sitebenchvideo_dataset, mmsi_video_dataset, vsisuper_recall_dataset, vsisuper_count_dataset,
-    sti_dataset, dsr_dataset, revsi_dataset, vrbench_dataset
+    sitebenchvideo_dataset, mmsi_video_dataset, vsisuper_recall_dataset, vsisuper_count_dataset, sti_dataset,
+    dsr_dataset, revsi_dataset, vrbench_dataset
 ]
 
 PREDEFINED_DATASET_SPECS = {}

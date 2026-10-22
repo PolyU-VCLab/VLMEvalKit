@@ -114,8 +114,10 @@ def MMBenchOfficialServer(dataset_name):
     if dataset_name in ['MMBench_TEST_EN', 'MMBench_TEST_CN', 'MMBench_TEST_EN_V11', 'MMBench_TEST_CN_V11']:
         ans_file1 = f'{root}/{dataset_name}.tsv'
         mapp = {
-            'MMBench_TEST_EN': 'MMBench', 'MMBench_TEST_CN': 'MMBench_CN',
-            'MMBench_TEST_EN_V11': 'MMBench_V11', 'MMBench_TEST_CN_V11': 'MMBench_CN_V11',
+            'MMBench_TEST_EN': 'MMBench',
+            'MMBench_TEST_CN': 'MMBench_CN',
+            'MMBench_TEST_EN_V11': 'MMBench_V11',
+            'MMBench_TEST_CN_V11': 'MMBench_CN_V11',
         }
         ans_file2 = f'{root}/{mapp[dataset_name]}.tsv'
         for f in [ans_file1, ans_file2]:
@@ -127,16 +129,16 @@ def MMBenchOfficialServer(dataset_name):
 
 
 class NumpyEncoder(json.JSONEncoder):
+
     def default(self, obj):
-        if isinstance(obj,
-                      (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64,
-                       np.uint8, np.uint16, np.uint32, np.uint64)):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
+                            np.uint32, np.uint64)):
             return int(obj)
         elif isinstance(obj, (np.float16, np.float32, np.float64)):
             return float(obj)
         elif isinstance(obj, (np.complex64, np.complex128)):
             return {'real': obj.real, 'imag': obj.imag}
-        elif isinstance(obj, (np.ndarray,)):
+        elif isinstance(obj, (np.ndarray, )):
             return obj.tolist()
         elif isinstance(obj, (np.bool_)):
             return bool(obj)
@@ -146,16 +148,19 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 # LOAD & DUMP
-def dump(data, f, **kwargs):
+def dump(data, f, *, strict=False, **kwargs):
+
     def dump_pkl(data, pth, **kwargs):
-        pickle.dump(data, open(pth, 'wb'))
+        with open(pth, 'wb') as file:
+            pickle.dump(data, file)
 
     def dump_json(data, pth, **kwargs):
         # 处理 DataFrame 对象
         if isinstance(data, pd.DataFrame):
             # 转换为 records 格式（列表格式）
             data = data.to_dict('records')
-        json.dump(data, open(pth, 'w'), indent=4, ensure_ascii=False, cls=NumpyEncoder)
+        with open(pth, 'w') as file:
+            json.dump(data, file, indent=4, ensure_ascii=False, cls=NumpyEncoder)
 
     def dump_jsonl(data, f, **kwargs):
         lines = [json.dumps(x, ensure_ascii=False, cls=NumpyEncoder) for x in data]
@@ -164,9 +169,12 @@ def dump(data, f, **kwargs):
 
     def dump_xlsx(data, f, **kwargs):
         with pd.ExcelWriter(
-            f,
-            engine='xlsxwriter',
-            engine_kwargs={'options': {'strings_to_formulas': False, 'strings_to_urls': False}},
+                f,
+                engine='xlsxwriter',
+                engine_kwargs={'options': {
+                    'strings_to_formulas': False,
+                    'strings_to_urls': False
+                }},
         ) as writer:
             data.to_excel(writer, index=False)
 
@@ -181,6 +189,8 @@ def dump(data, f, **kwargs):
     try:
         return handlers[suffix](data, f, **kwargs)
     except Exception:
+        if strict:
+            raise
         # if dump failed, fallback to pkl format
         pkl_file = f.rsplit('.', 1)[0] + '.pkl'
         logger.warning(f'Failed to dump to {suffix} format, falling back to pkl: {pkl_file}')
@@ -208,6 +218,8 @@ def get_eval_file_format():
 def get_pred_file_path(work_dir, model_name, dataset_name, use_env_format=True):
     if use_env_format:
         file_format = get_pred_file_format()
+        if not os.getenv('PRED_FORMAT') and dataset_name.startswith('OmniCompass_'):
+            file_format = 'tsv'
         if file_format == 'xlsx':
             return osp.join(work_dir, f'{model_name}_{dataset_name}.xlsx')
         elif file_format == 'tsv':
@@ -251,6 +263,7 @@ def _should_convert_to_dataframe(data):
 
 
 def load(f, fmt=None):
+
     def load_pkl(pth):
         return pickle.load(open(pth, 'rb'))
 
@@ -291,10 +304,13 @@ def load(f, fmt=None):
             download_file(f, tgt)
         f = tgt
 
-    handlers = dict(
-        pkl=load_pkl, json=load_json, jsonl=load_jsonl, xlsx=load_xlsx,
-        csv=load_csv, tsv=load_tsv, parquet=load_parquet
-    )
+    handlers = dict(pkl=load_pkl,
+                    json=load_json,
+                    jsonl=load_jsonl,
+                    xlsx=load_xlsx,
+                    csv=load_csv,
+                    tsv=load_tsv,
+                    parquet=load_parquet)
     if fmt is not None:
         return handlers[fmt](f)
 
@@ -308,6 +324,7 @@ def download_file(url, filename=None):
     from tqdm import tqdm
 
     class DownloadProgressBar(tqdm):
+
         def update_to(self, b=1, bsize=1, tsize=None):
             if tsize is not None:
                 self.total = tsize
@@ -458,9 +475,9 @@ def parse_file(s):
 def file_size(f, unit='GB'):
     stats = os.stat(f)
     div_map = {
-        'GB': 2 ** 30,
-        'MB': 2 ** 20,
-        'KB': 2 ** 10,
+        'GB': 2**30,
+        'MB': 2**20,
+        'KB': 2**10,
     }
     return stats.st_size / div_map[unit]
 
@@ -584,16 +601,12 @@ def copy_prediction_file(src_file, dst_file):
 
     frame = _prediction_table(src_file)
     if frame is None:
-        logger.warning(
-            f'Can not convert prediction file {src_file} to target format {dst_suffix}, reuse skipped.'
-        )
+        logger.warning(f'Can not convert prediction file {src_file} to target format {dst_suffix}, reuse skipped.')
         return False
     dump(frame, dst_file)
     if osp.exists(dst_file):
         return True
-    logger.warning(
-        f'Failed to materialize converted prediction file at {dst_file}, reuse skipped.'
-    )
+    logger.warning(f'Failed to materialize converted prediction file at {dst_file}, reuse skipped.')
     return False
 
 
@@ -604,21 +617,16 @@ def is_prediction_complete(pred_file, dataset_indices, retry_failed=True):
     if frame is None:
         return False
 
-    finished = {
-        str(idx): pred
-        for idx, pred in zip(frame['index'], frame['prediction'])
-    }
+    finished = {str(idx): pred for idx, pred in zip(frame['index'], frame['prediction'])}
     if retry_failed:
         finished = {k: v for k, v in finished.items() if INFER_FAIL_MSG not in str(v)}
     return all(str(idx) in finished for idx in dataset_indices)
 
 
-def get_infer_aux_file_names(model_name,
-                             dataset_name,
-                             dataset,
-                             result_file_base,
-                             world_size=1) -> set:
+def get_infer_aux_file_names(model_name, dataset_name, dataset, result_file_base, world_size=1) -> set:
     infer_aux = {f'{model_name}_{dataset_name}_checkpoint.pkl'}
+    if hasattr(dataset, 'inference_cache_files'):
+        infer_aux.update(dataset.inference_cache_files(model_name, dataset_name))
 
     if dataset.MODALITY == 'VIDEO':
         packstr = 'pack' if getattr(dataset, 'pack', False) else 'nopack'
@@ -659,14 +667,11 @@ def select_reuse_run(
             exact_match = [x for x in prediction_files if osp.basename(x) == exact_name]
             prediction_file = exact_match[0] if exact_match else prediction_files[0]
             if len(prediction_files) > 1:
-                logger.warning(
-                    f'Multiple prediction candidates in {run_dir}: '
-                    f'{prediction_files}. Will use {prediction_file}'
-                )
+                logger.warning(f'Multiple prediction candidates in {run_dir}: '
+                               f'{prediction_files}. Will use {prediction_file}')
 
         infer_aux_files = [
-            osp.join(run_dir, file_name)
-            for file_name in infer_aux_file_names
+            osp.join(run_dir, file_name) for file_name in infer_aux_file_names
             if osp.exists(osp.join(run_dir, file_name))
         ]
         if prediction_file is None and not infer_aux_files:
@@ -803,17 +808,11 @@ def prepare_reuse_files(
 
     source_dataset_status = source['status'].get('datasets', {}).get(dataset_name, {})
     source_judge_model = source_dataset_status.get('judge_model')
-    if (
-        reuse_aux == 'all'
-        and judge_model is not None
-        and context['prediction_complete']
-        and src_prediction_file is not None
-        and source_judge_model == judge_model
-    ):
+    if (reuse_aux == 'all' and judge_model is not None and context['prediction_complete']
+            and src_prediction_file is not None and source_judge_model == judge_model):
         infer_model_aux = {
             file_name
-            for file_name in infer_aux_file_names
-            if file_name.startswith(f'{model_name}_{dataset_name}_')
+            for file_name in infer_aux_file_names if file_name.startswith(f'{model_name}_{dataset_name}_')
         }
         all_aux_files = fetch_aux_files(src_prediction_file)
         for src_file in all_aux_files:

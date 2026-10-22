@@ -221,3 +221,6 @@ result*
 debug
 outputs
 scripts/data
+
+# Public OmniCompass configuration, containing provider placeholders only.
+!/scripts/omnicompass_api_32k.json
