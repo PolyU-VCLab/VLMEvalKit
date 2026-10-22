@@ -18,7 +18,6 @@ from .omnicompass_public_adapter import evaluate_public_predictions, render_prom
 from .omnicompass_release import format_number
 from .print_frame_eval_results import is_content_policy_error
 from .release_tools import rows, safe
-from .review_run import record
 
 SETTINGS = ("text", "text_image")
 
@@ -122,7 +121,6 @@ class Protocol:
             "answer": "",
             "protocol_id": self.protocol_id
         } for q in selected for setting in settings]
-        record(documents)
         return documents
 
     def content(self, doc):
@@ -261,28 +259,4 @@ def evaluate(docs, outputs, settings=SETTINGS):
     # Framework tables must not present an incomplete transport run as final scores.
     if any(not item["complete"] for item in report["tracks"].values()):
         raise ValueError("Incomplete transport results; retry before publishing metrics")
-    record(docs, report)
     return report
-
-
-def viewer_question(row):
-    """Losslessly restore a canonical question from an existing HF Viewer row."""
-    question = {
-        "question_id": row["question_id"],
-        "video_id": row["video_id"],
-        "track": row["track"],
-        "task": row["task"],
-        "question": {
-            "text": row["question_text"],
-            "text_image": row["question_text_image"]
-        },
-        "reference_image": row["reference_image_path"],
-        "ground_truth": json.loads(row["ground_truth"]),
-    }
-    if row.get("given_interval") is not None:
-        question["given_interval"] = row["given_interval"]
-    if row.get("options") is not None:
-        question["options"] = json.loads(row["options"])
-    if row.get("qa_type") is not None:
-        question["qa_type"] = row["qa_type"]
-    return question

@@ -18,7 +18,7 @@ import torch
 from vlmeval.api.gpt import OpenAIWrapper
 from vlmeval.config import supported_VLM
 from vlmeval.dataset.omnicompass import OmniCompass
-from vlmeval.dataset.utils.omnicompass.bridge import evaluate, prediction
+from vlmeval.dataset.utils.omnicompass.bridge import Protocol, evaluate, prediction
 from vlmeval.dataset.utils.omnicompass.run_identity import model_identity
 from vlmeval.inference_video import _build_video_model, _checkpoint, infer_data_job_video
 from vlmeval.smp import dump, load
@@ -79,6 +79,19 @@ def api_model(**kwargs):
                          retry=1,
                          wait=0,
                          **kwargs)
+
+
+def test_internal_review_environment_has_no_effect(tmp_path, monkeypatch):
+    receipts = tmp_path / "receipts"
+    monkeypatch.setenv("OMNICOMPASS_REPORT_DIR", str(receipts))
+    monkeypatch.delenv("OMNICOMPASS_RUN_ID", raising=False)
+    protocol = object.__new__(Protocol)
+    protocol.protocol_id = "review-hook-removal"
+    protocol.questions = [json.loads(TinyDataset().docs[0]["question_json"])]
+    docs = protocol.documents("VL", tasks=("QA",))
+    report = evaluate(docs, ["A"] * len(docs))
+    assert report["tracks"]["VL"]["main_metrics"]["text_target"]["QA_accuracy"] == 1.0
+    assert not receipts.exists()
 
 
 @pytest.mark.parametrize("field,value", [
