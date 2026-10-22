@@ -1,4 +1,3 @@
-# yapf: disable
 from __future__ import annotations
 import json
 import logging
@@ -10,8 +9,6 @@ import torch
 from vlmeval.smp import get_gpu_memory, listinstr
 from ..base import BaseModel
 from .prompt import Qwen3VLPromptMixin
-
-# yapf: enable
 
 VLLM_MAX_IMAGE_INPUT_NUM = 24
 
@@ -114,11 +111,9 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
         # Use official Qwen3-Omni classes when model_path indicates omni
         if listinstr(['omni'], model_path.lower()):
             try:
-                # yapf: disable
                 from transformers import (Qwen3OmniMoeForConditionalGeneration,
                                           Qwen3OmniMoeProcessor)
 
-                # yapf: enable
             except Exception as err:
                 logging.critical("pip install git+https://github.com/huggingface/transformers")
                 raise err
@@ -142,10 +137,13 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
             from vllm import LLM
             gpu_count = torch.cuda.device_count()
             tp_size = gpu_count if gpu_count > 0 else 1
-            logging.info(f'Using vLLM for {self.model_path} inference with {tp_size} GPUs (available: {gpu_count})')
+            logging.info(
+                f'Using vLLM for {self.model_path} inference with {tp_size} GPUs (available: {gpu_count})'
+            )
             if os.environ.get('VLLM_WORKER_MULTIPROC_METHOD') != 'spawn':
                 logging.warning(
-                    "VLLM_WORKER_MULTIPROC_METHOD is not set to spawn. Use 'export VLLM_WORKER_MULTIPROC_METHOD=spawn'")
+                    "VLLM_WORKER_MULTIPROC_METHOD is not set to spawn. Use 'export VLLM_WORKER_MULTIPROC_METHOD=spawn'"
+                )
             enable_expert_parallel = is_moe_model(self.model_path)
             # For Qwen3-Omni, vLLM engine v1 is not supported yet
             if listinstr(['omni'], self.model_path.lower()):
@@ -168,12 +166,12 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
         else:
             if listinstr(['omni'], model_path.lower()):
                 self.model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
-                    model_path, dtype='auto', device_map='auto', attn_implementation='flash_attention_2')
+                    model_path, dtype='auto', device_map='auto', attn_implementation='flash_attention_2'
+                )
             else:
-                self.model = AutoModelForImageTextToText.from_pretrained(model_path,
-                                                                         torch_dtype='auto',
-                                                                         device_map='auto',
-                                                                         attn_implementation='flash_attention_2')
+                self.model = AutoModelForImageTextToText.from_pretrained(
+                    model_path, torch_dtype='auto', device_map='auto', attn_implementation='flash_attention_2'
+                )
             self.model.eval()
 
         torch.cuda.empty_cache()
@@ -391,9 +389,9 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
             generated_ids = [
                 output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, generated_ids)
             ]
-            out = self.processor.tokenizer.batch_decode(generated_ids,
-                                                        skip_special_tokens=True,
-                                                        clean_up_tokenization_spaces=False)
+            out = self.processor.tokenizer.batch_decode(
+                generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            )
             response = out[0]
             output_tokens = len(generated_ids[0])
         raw_response = response
@@ -461,13 +459,15 @@ class Qwen3VLChat(Qwen3VLPromptMixin, BaseModel):
                 return_video_metadata=True,
             )
 
-        sampling_params = SamplingParams(temperature=self.temperature,
-                                         max_tokens=self.max_new_tokens,
-                                         top_p=self.top_p,
-                                         top_k=self.top_k,
-                                         repetition_penalty=self.repetition_penalty,
-                                         presence_penalty=self.presence_penalty,
-                                         stop_token_ids=None)
+        sampling_params = SamplingParams(
+            temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
+            top_p=self.top_p,
+            top_k=self.top_k,
+            repetition_penalty=self.repetition_penalty,
+            presence_penalty=self.presence_penalty,
+            stop_token_ids=None
+        )
         mm_data = {}
         if image_inputs is not None:
             mm_data['image'] = image_inputs

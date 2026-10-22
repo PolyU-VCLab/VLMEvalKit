@@ -53,7 +53,9 @@ def _collect_streaming_content(response, verbose=False):
             chunk_count += 1
     answer = ''.join(answer_parts).strip()
     if verbose:
-        logger.info(f'Streaming finished: chunks={chunk_count}, chars={len(answer)}')
+        logger.info(
+            f'Streaming finished: chunks={chunk_count}, chars={len(answer)}'
+        )
     return answer
 
 
@@ -170,8 +172,9 @@ class OpenAIWrapper(BaseAPI):
 
                 if key is None:
                     key = env_key
-                assert isinstance(
-                    key, str), ('Please set the environment variable AZURE_OPENAI_API_KEY to your openai key. ')
+                assert isinstance(key, str), (
+                    'Please set the environment variable AZURE_OPENAI_API_KEY to your openai key. '
+                )
             else:
                 env_key = os.environ.get('OPENAI_API_KEY', '')
                 if key is None:
@@ -212,7 +215,8 @@ class OpenAIWrapper(BaseAPI):
 
         if use_azure:
             api_base_template = (
-                '{endpoint}openai/deployments/{deployment_name}/chat/completions?api-version={api_version}')
+                '{endpoint}openai/deployments/{deployment_name}/chat/completions?api-version={api_version}'
+            )
             endpoint = os.getenv('AZURE_OPENAI_ENDPOINT', None)
             assert endpoint is not None, 'Please set the environment variable AZURE_OPENAI_ENDPOINT. '
             deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', None)
@@ -220,9 +224,11 @@ class OpenAIWrapper(BaseAPI):
             api_version = os.getenv('OPENAI_API_VERSION', None)
             assert api_version is not None, 'Please set the environment variable OPENAI_API_VERSION. '
 
-            self.api_base = api_base_template.format(endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
-                                                     deployment_name=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
-                                                     api_version=os.getenv('OPENAI_API_VERSION'))
+            self.api_base = api_base_template.format(
+                endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
+                deployment_name=os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME'),
+                api_version=os.getenv('OPENAI_API_VERSION')
+            )
         else:
             if api_base is None:
                 if 'OPENAI_API_BASE' in os.environ and os.environ['OPENAI_API_BASE'] != '':
@@ -326,7 +332,12 @@ class OpenAIWrapper(BaseAPI):
         if hasattr(self, 'baidu_appid'):
             headers['appid'] = self.baidu_appid
 
-        payload = dict(model=self.model, messages=input_msgs, n=1, temperature=temperature, **kwargs)
+        payload = dict(
+            model=self.model,
+            messages=input_msgs,
+            n=1,
+            temperature=temperature,
+            **kwargs)
         stream = payload.pop('stream', self.stream)
         if self.enable_thinking is not None:
             if self.thinking_parameter == "enable_thinking":

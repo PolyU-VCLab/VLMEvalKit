@@ -1,4 +1,3 @@
-# yapf: disable
 import argparse
 import os
 import os.path as osp
@@ -16,8 +15,6 @@ from vlmeval.config import supported_VLM
 from vlmeval.smp import (dump, get_pred_file_path, get_rank_and_world_size, load,
                          load_prediction_file, resolve_dataset_alias_name)
 from vlmeval.utils import track_progress_rich
-
-# yapf: enable
 
 FAIL_MSG = 'Failed to obtain answer via API.'
 
@@ -76,15 +73,8 @@ def _build_video_model(model, model_name, use_vllm):
 
 
 # Only API model is accepted
-def infer_data_api(model,
-                   work_dir,
-                   model_name,
-                   dataset,
-                   samples_dict={},
-                   api_nproc=4,
-                   retry_failed=True,
-                   dataset_name=None,
-                   dataset_alias_name=None):
+def infer_data_api(model, work_dir, model_name, dataset, samples_dict={}, api_nproc=4, retry_failed=True,
+                   dataset_name=None, dataset_alias_name=None):
     rank, world_size = get_rank_and_world_size()
     assert rank == 0 and world_size == 1
     dataset_name = dataset_name or dataset.dataset_name
@@ -99,8 +89,10 @@ def infer_data_api(model,
     index_str_to_orig = {str(i): i for i in indices}
     if getattr(model, 'backend', None) == 'genai':
         if dataset.nframe > 0:
-            print('Gemini model (with genai backend) does not support nframe, '
-                  'will set its VIDEO_LLM to False to enable multi-image input for video.')
+            print(
+                'Gemini model (with genai backend) does not support nframe, '
+                'will set its VIDEO_LLM to False to enable multi-image input for video.'
+            )
             setattr(model, 'VIDEO_LLM', False)
         else:
             print('Gemini model (with genai backend) is a video-llm, '
@@ -164,17 +156,8 @@ def infer_data_api(model,
     return result
 
 
-def infer_data(model,
-               model_name,
-               work_dir,
-               dataset,
-               out_file,
-               verbose=False,
-               api_nproc=4,
-               use_vllm=False,
-               retry_failed=True,
-               dataset_name=None,
-               dataset_alias_name=None):
+def infer_data(model, model_name, work_dir, dataset, out_file, verbose=False, api_nproc=4, use_vllm=False,
+               retry_failed=True, dataset_name=None, dataset_alias_name=None):
     dataset_name = dataset_name or dataset.dataset_name
     dataset_alias_name = resolve_dataset_alias_name(dataset_name, dataset_alias_name)
     prev_file = f'{work_dir}/{model_name}_{dataset_alias_name}_PREV.pkl'
@@ -201,16 +184,16 @@ def infer_data(model,
         dataset.validate_model(model)
     if is_api:
         assert world_size == 1
-        supp = infer_data_api(model=model,
-                              work_dir=work_dir,
-                              model_name=model_name,
-                              dataset=dataset,
-                              samples_dict={k: sample_map[k]
-                                            for k in sample_indices_subrem},
-                              api_nproc=api_nproc,
-                              retry_failed=retry_failed,
-                              dataset_name=dataset_name,
-                              dataset_alias_name=dataset_alias_name)
+        supp = infer_data_api(
+            model=model,
+            work_dir=work_dir,
+            model_name=model_name,
+            dataset=dataset,
+            samples_dict={k: sample_map[k] for k in sample_indices_subrem},
+            api_nproc=api_nproc,
+            retry_failed=retry_failed,
+            dataset_name=dataset_name,
+            dataset_alias_name=dataset_alias_name)
         for k in sample_indices_subrem:
             assert k in supp
         res.update(supp)
@@ -219,8 +202,10 @@ def infer_data(model,
 
     assert not getattr(dataset, 'pack', False), 'Current model not supported pack mode!'
     if 'megabench' in dataset_name.lower() and 'llava_onevision' in model_name:
-        print('LLaVA-OneVision does not support Megabench dataset as video dataset, '
-              'will set its VIDEO_LLM to False to enable multi-image input for video.')
+        print(
+            'LLaVA-OneVision does not support Megabench dataset as video dataset, '
+            'will set its VIDEO_LLM to False to enable multi-image input for video.'
+        )
         setattr(model, 'VIDEO_LLM', False)
 
     for i, idx in tqdm(enumerate(sample_indices_subrem)):
@@ -244,7 +229,11 @@ def infer_data(model,
                 raise ValueError(f'nframe is not suitable for {model_name}')
             else:
                 setattr(model, 'fps', None)
-        if ('Qwen2-VL' in model_name or 'Qwen2.5-VL' in model_name or 'Qwen2.5-Omni' in model_name):
+        if (
+            'Qwen2-VL' in model_name
+            or 'Qwen2.5-VL' in model_name
+            or 'Qwen2.5-Omni' in model_name
+        ):
             if getattr(model, 'nframe', None) is None and dataset.nframe > 0:
                 print(f'using {model_name} default setting for video, dataset.nframe is ommitted')
             if getattr(model, 'fps', None) is None and dataset.fps > 0:
@@ -255,11 +244,13 @@ def infer_data(model,
         if hasattr(model, 'use_custom_prompt') and model.use_custom_prompt(sample_dataset_name):
             if dataset.nframe == 0:
                 raise ValueError(f'nframe must be set for custom prompt, fps is not suitable for {model_name}')
-            struct = model.build_prompt(dataset.data.iloc[sample_map[idx]],
-                                        dataset=dataset,
-                                        video_llm=getattr(model, 'VIDEO_LLM', False))
+            struct = model.build_prompt(
+                dataset.data.iloc[sample_map[idx]], dataset=dataset, video_llm=getattr(model, 'VIDEO_LLM', False)
+            )
         else:
-            struct = dataset.build_prompt(sample_map[idx], video_llm=getattr(model, 'VIDEO_LLM', False))
+            struct = dataset.build_prompt(
+                sample_map[idx], video_llm=getattr(model, 'VIDEO_LLM', False)
+            )
         if struct is None:
             continue
 
@@ -336,17 +327,18 @@ def infer_data_job_video(model,
     tmpl = osp.join(work_dir, '{}' + f'{world_size}_{Path(result_file).stem}.pkl')
     out_file = tmpl.format(rank)
 
-    model = infer_data(model=model,
-                       model_name=model_name,
-                       work_dir=work_dir,
-                       dataset=dataset,
-                       out_file=out_file,
-                       verbose=verbose,
-                       api_nproc=api_nproc,
-                       use_vllm=use_vllm,
-                       retry_failed=retry_failed,
-                       dataset_name=dataset_name,
-                       dataset_alias_name=dataset_alias_name)
+    model = infer_data(
+        model=model,
+        model_name=model_name,
+        work_dir=work_dir,
+        dataset=dataset,
+        out_file=out_file,
+        verbose=verbose,
+        api_nproc=api_nproc,
+        use_vllm=use_vllm,
+        retry_failed=retry_failed,
+        dataset_name=dataset_name,
+        dataset_alias_name=dataset_alias_name)
 
     if world_size > 1:
         dist.barrier()
@@ -374,10 +366,12 @@ def infer_data_job_video(model,
         packstr = 'pack' if getattr(dataset, 'pack', False) else 'nopack'
         if dataset.nframe > 0:
             checkpoint_file = (
-                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.nframe}frame_{packstr}_checkpoint.pkl')
+                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.nframe}frame_{packstr}_checkpoint.pkl'
+            )
         else:
             checkpoint_file = (
-                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.fps}fps_{packstr}_checkpoint.pkl')
+                f'{work_dir}/{model_name}_{dataset_alias_name}_{dataset.fps}fps_{packstr}_checkpoint.pkl'
+            )
         if osp.exists(checkpoint_file):
             os.remove(checkpoint_file)
         # Clean up PREV file

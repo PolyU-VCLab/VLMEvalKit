@@ -1,4 +1,3 @@
-# yapf: disable
 import copy
 import os.path as osp
 import warnings
@@ -81,9 +80,7 @@ from .medq_deg_bench import MedQDEGBenchDataset
 from .medqbench_caption import MedqbenchCaptionDataset
 from .medqbench_mcq import MedqbenchMCQDataset
 from .medqbench_paired_description import MedqbenchPairedDescriptionDataset
-# yapf: enable
 # Add by EASI team
-# yapf: disable
 from .megabench import MEGABench
 from .memlens import MemLens
 from .miabench import MIABench
@@ -191,8 +188,6 @@ from .worldsense import WorldSense
 from .worldvqa import WorldVQA
 from .xstest import XSTestDataset
 
-# yapf: enable
-
 
 class ConcatDataset(ImageBaseDataset):
     # This dataset takes multiple dataset names as input and aggregate them into a single dataset.
@@ -200,17 +195,17 @@ class ConcatDataset(ImageBaseDataset):
 
     DATASET_SETS = {
         'MMMB': ['MMMB_ar', 'MMMB_cn', 'MMMB_en', 'MMMB_pt', 'MMMB_ru', 'MMMB_tr'],
-        'MTL_MMBench_DEV':
-        ['MMBench_dev_ar', 'MMBench_dev_cn', 'MMBench_dev_en', 'MMBench_dev_pt', 'MMBench_dev_ru', 'MMBench_dev_tr'],
+        'MTL_MMBench_DEV': [
+            'MMBench_dev_ar', 'MMBench_dev_cn', 'MMBench_dev_en',
+            'MMBench_dev_pt', 'MMBench_dev_ru', 'MMBench_dev_tr'
+        ],
         'ScreenSpot_Pro': [
-            'ScreenSpot_Pro_Development', 'ScreenSpot_Pro_Creative', 'ScreenSpot_Pro_CAD', 'ScreenSpot_Pro_Scientific',
-            'ScreenSpot_Pro_Office', 'ScreenSpot_Pro_OS'
+            'ScreenSpot_Pro_Development', 'ScreenSpot_Pro_Creative', 'ScreenSpot_Pro_CAD',
+            'ScreenSpot_Pro_Scientific', 'ScreenSpot_Pro_Office', 'ScreenSpot_Pro_OS'
         ],
         'ScreenSpot': ['ScreenSpot_Mobile', 'ScreenSpot_Desktop', 'ScreenSpot_Web'],
         'ScreenSpot_v2': ['ScreenSpot_v2_Mobile', 'ScreenSpot_v2_Desktop', 'ScreenSpot_v2_Web'],
-        'M4Bench':
-        ['State_Invariance', 'State_Comparison', 'Spatial_Perception', 'Instance_Comparison',
-         'Detailed_Difference'],  # noqa: E501
+        'M4Bench': ['State_Invariance', 'State_Comparison', 'Spatial_Perception', 'Instance_Comparison', 'Detailed_Difference'],  # noqa: E501
     }
 
     def __init__(self, dataset):
@@ -315,201 +310,44 @@ class ConcatDataset(ImageBaseDataset):
 # Add new supported dataset class here
 IMAGE_DATASET = [
     VisualOverload,
-    ImageCaptionDataset,
-    ImageYORNDataset,
-    ImageMCQDataset,
-    ImageVQADataset,
-    MathVision,
-    LENS,
-    MMMUDataset,
-    OCRBench,
-    MathVista,
-    LLaVABench,
-    LLaVABench_KO,
-    VGRPBench,
-    MMVet,  # noqa: E501
-    MTVQADataset,
-    TableVQABench,
-    MMLongBench,
-    MemLens,
-    MMLongBenchDoc,
-    VCRDataset,
-    MMDUDataset,
-    DUDE,
-    DocScope,
+    ImageCaptionDataset, ImageYORNDataset, ImageMCQDataset, ImageVQADataset,
+    MathVision, LENS, MMMUDataset, OCRBench, MathVista, LLaVABench, LLaVABench_KO, VGRPBench, MMVet,  # noqa: E501
+    MTVQADataset, TableVQABench, MMLongBench, MemLens, MMLongBenchDoc, VCRDataset, MMDUDataset, DUDE, DocScope,
     LongDocURL,
-    SlideVQA,
-    MUIRDataset,
-    CCOCRDataset,
-    GMAIMMBenchDataset,
-    MMERealWorld,
-    HRBenchDataset,
-    CRPE,
-    MathVerse,
-    NaturalBenchDataset,
-    MIABench,
-    OlympiadBench,
-    SeePhys,
-    WildVision,
-    MMMath,
-    QSpatial,
-    Dynamath,
-    GSM8KVDataset,
-    MMGenBench,
-    VizWiz,  # noqa: E501
-    MMNIAH,
-    CMMMU,
-    VLRewardBench,
-    WeMath,
-    LogicVista,
-    MMMUProDataset,
-    CreationMMBenchDataset,
-    HLEDataset,
-    ImageShortQADataset,
-    MMAlignBench,
-    OmniDocBench,
-    VLM2Bench,
-    VMCBenchDataset,
-    EMMADataset,
-    MME_CoT,
-    MOAT,
-    MedXpertQA_MM_test,
-    LEGO,
-    MMSci_Captioning,
-    Physics_yale,
-    ScreenSpot_Pro,
-    ScreenSpot,
-    VenusBench_GD,
-    ScreenSpotV2,
-    OSWorld_G,
-    VBGD,
-    MMIFEval,
-    Spatial457,
-    VisuLogic,
-    CVBench,
-    PathVQA_VAL,
-    PathVQA_TEST,
-    TDBench,
-    TDBenchGrounding,
-    MicroBench,
-    CharXiv,
-    OmniMedVQA,
-    WildDocBenchmark,
-    MSEarthMCQ,
-    OCR_Reasoning,
-    PhyX,
-    VLMBlind,
-    CountBenchQA,
-    ZEROBench,
-    SCAM,
-    Omni3DBench,
-    TallyQA,
-    _3DSRBench,
-    BMMR,
-    AffordanceDataset,
-    MMEReasoning,
-    GOBenchDataset,
-    SFE,
-    ChartMimic,
-    MMVMBench,
-    XLRSBench,
-    OmniEarthMCQBench,
-    VisFactor,
-    OSTDataset,
-    OCRBench_v2,
-    TreeBench,
-    CVQA,
-    M4Bench,
-    AyaVisionBench,
-    TopViewRS,
-    VLMBias,
-    MMHELIX,
-    MedqbenchMCQDataset,
-    MathCanvas,
-    MMReason,
-    MedqbenchPairedDescriptionDataset,
-    MedqbenchCaptionDataset,
-    MedQDEGBenchDataset,
-    ChartMuseum,
-    ChartQAPro,
-    ReasonMap_Plus,
-    olmOCRBench,
-    OceanOCRBench,
-    MATBench,
-    VLRMBench,
-    RefCOCODataset,
-    RefSpatialDataset,
-    ERQADataset,
-    SimpleVQA,
-    HiPhODataset,
-    MaCBench,
-    WikiVQABench,
-    UniSVG,
-    SArena,
-    VLMsAreBiased,
-    MMESCIDataset,
-    CoreCognition,
-    GroundingME,
-    FoxBench,
-    VTCBench,
-    Asclepius,
-    PlotQA,
-    ChartX,
-    ChartBench,
-    ChartCapDataset,
-    WorldVQA,
-    PuzzleVQA,
-    VisualPuzzles,  # noqa: E501
-    MMSafetyBenchDataset,
-    MSSBenchDataset,
-    SIUODataset,
-    SIUOGenDataset,
-    SIUOMCQDataset,
-    M3oralBenchDataset,  # noqa: E501
-    Design2Code,
-    VLADBench,
-    SSIBenchDataset,
-    NPMM,
-    SGI_Bench_Experimental_Reasoning,
-    MMOral_OPG_OPEN,
-    MMOral_OPG_CLOSED,  # noqa: E501
-    SciDocBench,
-    OmniMat,
-    MMRarebenchDiagnosis,
-    MMRarebenchTreatment,
-    MMRarebenchCrossmodal,
-    MMRarebenchExamination,
-    MRareBenchDiagnosis,
-    MRareBenchEvidenceVerif,
-    MolRecBenchWildDataset,
-    BabyVision,
-    WildprobeDataset,
-    PerceptionBench,
-    SUPERChemDataset,
-    C4Bench,
-    ActiveVisionDataset,
-    E3VQA,
+    SlideVQA, MUIRDataset, CCOCRDataset, GMAIMMBenchDataset, MMERealWorld,
+    HRBenchDataset, CRPE, MathVerse, NaturalBenchDataset, MIABench,
+    OlympiadBench, SeePhys, WildVision, MMMath, QSpatial, Dynamath, GSM8KVDataset, MMGenBench, VizWiz,  # noqa: E501
+    MMNIAH, CMMMU, VLRewardBench, WeMath, LogicVista, MMMUProDataset,
+    CreationMMBenchDataset, HLEDataset, ImageShortQADataset, MMAlignBench, OmniDocBench,
+    VLM2Bench, VMCBenchDataset, EMMADataset, MME_CoT, MOAT, MedXpertQA_MM_test,
+    LEGO, MMSci_Captioning, Physics_yale, ScreenSpot_Pro, ScreenSpot, VenusBench_GD,
+    ScreenSpotV2, OSWorld_G, VBGD, MMIFEval, Spatial457, VisuLogic, CVBench, PathVQA_VAL,
+    PathVQA_TEST, TDBench, TDBenchGrounding, MicroBench, CharXiv, OmniMedVQA,
+    WildDocBenchmark, MSEarthMCQ, OCR_Reasoning, PhyX, VLMBlind, CountBenchQA,
+    ZEROBench, SCAM, Omni3DBench, TallyQA, _3DSRBench, BMMR, AffordanceDataset,
+    MMEReasoning, GOBenchDataset, SFE, ChartMimic, MMVMBench, XLRSBench,
+    OmniEarthMCQBench, VisFactor, OSTDataset, OCRBench_v2, TreeBench, CVQA, M4Bench,
+    AyaVisionBench, TopViewRS, VLMBias, MMHELIX, MedqbenchMCQDataset, MathCanvas, MMReason,
+    MedqbenchPairedDescriptionDataset, MedqbenchCaptionDataset, MedQDEGBenchDataset,
+    ChartMuseum, ChartQAPro, ReasonMap_Plus,
+    olmOCRBench, OceanOCRBench, MATBench, VLRMBench, RefCOCODataset, RefSpatialDataset,
+    ERQADataset, SimpleVQA, HiPhODataset, MaCBench, WikiVQABench,
+    UniSVG, SArena, VLMsAreBiased, MMESCIDataset, CoreCognition, GroundingME,
+    FoxBench, VTCBench, Asclepius, PlotQA, ChartX, ChartBench, ChartCapDataset, WorldVQA, PuzzleVQA, VisualPuzzles,  # noqa: E501
+    MMSafetyBenchDataset, MSSBenchDataset, SIUODataset, SIUOGenDataset, SIUOMCQDataset, M3oralBenchDataset,  # noqa: E501
+    Design2Code, VLADBench, SSIBenchDataset, NPMM, SGI_Bench_Experimental_Reasoning, MMOral_OPG_OPEN, MMOral_OPG_CLOSED,  # noqa: E501
+    SciDocBench, OmniMat,
+    MMRarebenchDiagnosis, MMRarebenchTreatment, MMRarebenchCrossmodal, MMRarebenchExamination,
+    MRareBenchDiagnosis, MRareBenchEvidenceVerif, MolRecBenchWildDataset, BabyVision, WildprobeDataset,
+    PerceptionBench, SUPERChemDataset, C4Bench, ActiveVisionDataset, E3VQA,
     MVHBench,
 ]
 
 # add by EASI team
 IMAGE_DATASET += [
-    MindCubeBench,
-    EmbSpatialBench,
-    ViewSpatialBench,
-    MMSIBench,
-    SiteBenchImage,
-    SparBench,
-    SpatialVizBench,
-    SpatialDISE,
-    StareBench,
-    OmniSpatialBench,
-    ERQABench,
-    RoboSpatialBench,
-    RefSpatialBench,  # noqa: E501
-    SPBench,
-    ERIQBench,
-    DA2K
+    MindCubeBench, EmbSpatialBench, ViewSpatialBench, MMSIBench, SiteBenchImage,
+    SparBench, SpatialVizBench, SpatialDISE, StareBench, OmniSpatialBench, ERQABench, RoboSpatialBench, RefSpatialBench,  # noqa: E501
+    SPBench, ERIQBench, DA2K
 ]
 
 VIDEO_DATASET = [
@@ -523,15 +361,19 @@ VIDEO_DATASET = [
 ]
 
 # add by EASI team
-VIDEO_DATASET += [SiteBenchVideo, VsiBench, VsiSuperRecall, VsiSuperCount, MMSIVideoBench, STIBench,
-                  DSRBench]  # noqa: E501
+VIDEO_DATASET += [
+    SiteBenchVideo, VsiBench, VsiSuperRecall, VsiSuperCount, MMSIVideoBench, STIBench, DSRBench
+]  # noqa: E501
 
 TEXT_DATASET = [
-    TextMCQDataset, SGI_Bench_Wet_Experiment, SGI_Bench_Dry_Experiment, SGI_Bench_Deep_Research,
-    SGI_Bench_Idea_Generation, XSTestDataset, FlamesDataset, MedXpertQAText
+    TextMCQDataset, SGI_Bench_Wet_Experiment, SGI_Bench_Dry_Experiment,
+    SGI_Bench_Deep_Research, SGI_Bench_Idea_Generation, XSTestDataset, FlamesDataset,
+    MedXpertQAText
 ]
 
-CUSTOM_DATASET = [CustomMCQDataset, CustomVQADataset, CustomTextMCQDataset]
+CUSTOM_DATASET = [
+    CustomMCQDataset, CustomVQADataset, CustomTextMCQDataset
+]
 
 DATASET_COLLECTION = [ConcatDataset, ConcatVideoDataset]
 
@@ -555,8 +397,7 @@ def DATASET_TYPE(dataset, *, default: str = 'MCQ') -> str:
 
     if 'openended' in dataset.lower():
         return 'VQA'
-    warnings.warn(
-        f'Dataset {dataset} is a custom one and not annotated as `openended`, will treat as {default}. ')  # noqa: E501
+    warnings.warn(f'Dataset {dataset} is a custom one and not annotated as `openended`, will treat as {default}. ')  # noqa: E501
     return default
 
 
@@ -596,15 +437,18 @@ def build_dataset(dataset_name, **kwargs):
 
     data = load(data_file)
     if 'question' not in [x.lower() for x in data.columns]:
-        warnings.warn(f'Data file {data_file} does not have a `question` column. Dataset building failed. ')
+        warnings.warn(
+            f'Data file {data_file} does not have a `question` column. Dataset building failed. ')
         return None
 
     if 'A' in data and 'B' in data:
         if 'image' in data or 'image_path' in data:
-            warnings.warn(f'Will assume unsupported dataset {dataset_name} as a Custom MCQ dataset. ')
+            warnings.warn(
+                f'Will assume unsupported dataset {dataset_name} as a Custom MCQ dataset. ')
             return CustomMCQDataset(dataset=dataset_name, **kwargs)
         else:
-            warnings.warn(f'Will assume unsupported dataset {dataset_name} as a Custom Text MCQ dataset. ')
+            warnings.warn(
+                f'Will assume unsupported dataset {dataset_name} as a Custom Text MCQ dataset. ')
             return CustomTextMCQDataset(dataset=dataset_name, **kwargs)
     else:
         warnings.warn(f'Will assume unsupported dataset {dataset_name} as a Custom VQA dataset. ')
